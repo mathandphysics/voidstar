@@ -76,3 +76,9 @@ void Application::SetScreenshotTaken(const std::string& fileName)
 {
 	m_screenshotOverlay.NewScreenshotTaken(fileName);
 }
+
+void Application::LoadBlackHole()
+{
+	m_SceneManager.DeleteCurrentScene();
+	m_SceneManager.SetCurrentScene(m_SceneManager.GetSceneList()[0].second);
+}

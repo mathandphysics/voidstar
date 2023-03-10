@@ -102,6 +102,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_BHMass", m_mass);
     shader->SetUniform1f("u_diskRotationAngle", m_diskRotationAngle);
 
+    shader->SetUniform1i("u_useDebugSphereTexture", (int)m_useDebugSphereTexture);
     shader->SetUniform1i("u_useDebugDiskTexture", (int)m_useDebugDiskTexture);
     shader->SetUniform3f("u_sphereDebugColour1", m_sphereDebugColour1[0], m_sphereDebugColour1[1], m_sphereDebugColour1[2]);
     shader->SetUniform3f("u_sphereDebugColour2", m_sphereDebugColour2[0], m_sphereDebugColour2[1], m_sphereDebugColour2[2]);

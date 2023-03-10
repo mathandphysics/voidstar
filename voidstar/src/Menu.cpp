@@ -108,13 +108,13 @@ void Menu::ShowFileMenu()
 		}
 		if (ImGui::BeginMenu("View"))
 		{
-			ImGui::Checkbox("Show Scene List Window", &m_showSceneMenu);
+			//ImGui::Checkbox("Show Scene List Window", &m_showSceneMenu);
 			ImGui::Checkbox("Show Camera Controls", &m_showCameraControls);
-			ImGui::Checkbox("Show FPS in Scene Window", &m_showFPS);
+			//ImGui::Checkbox("Show FPS in Scene Window", &m_showFPS);
 			ImGui::EndMenu();
 		}
 
-		Menu::ShowSceneDropdown();
+		//Menu::ShowSceneDropdown();
 		Menu::ShowHelp();
 
 		ImGui::EndMainMenuBar();

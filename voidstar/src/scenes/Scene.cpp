@@ -17,7 +17,6 @@ scene::Scene::~Scene()
 
 
 scene::SceneManager::SceneManager()
-	: m_CurrentScene(nullptr)
 {
 	scene::SceneManager::RegisterScene<scene::BlackHoleScene>("Black Hole");
 }

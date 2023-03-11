@@ -153,25 +153,30 @@ void BlackHole::OnImGuiRender()
         ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, -0.3f, 0.3f, "Rotation Speed = %.3f");
         ImGui::PopItemWidth();
     }
+
     ImGui::Checkbox("Disk Debug Texture", &m_useDebugDiskTexture);
-
-
     ImGui::Checkbox("Sphere Debug Texture", &m_useDebugSphereTexture);
-    
-    
+
     ImGui::Separator();
     ImGui::Separator();
-    ImGui::Text("Disk Top Debug Colour 1");
-    ImGui::ColorEdit3("##ColourTop1", &m_diskDebugColourTop1[0]);
-    ImGui::Text("Disk Top Debug Colour 2");
-    ImGui::ColorEdit3("##ColourTop2", &m_diskDebugColourTop2[0]);
-    ImGui::Text("Disk Bottom Debug Colour 1");
-    ImGui::ColorEdit3("##ColourBottom1", &m_diskDebugColourBottom1[0]);
-    ImGui::Text("Disk Bottom Debug Colour 2");
-    ImGui::ColorEdit3("##ColourBottom2", &m_diskDebugColourBottom2[0]);
-    ImGui::Text("Sphere Debug Colour 1");
-    ImGui::ColorEdit3("##SphereColour1", &m_sphereDebugColour1[0]);
-    ImGui::Text("Sphere Debug Colour 2");
-    ImGui::ColorEdit3("##SphereColour2", &m_sphereDebugColour2[0]);
+
+    if (m_useDebugDiskTexture)
+    {
+        ImGui::Text("Disk Top Debug Colour 1");
+        ImGui::ColorEdit3("##ColourTop1", &m_diskDebugColourTop1[0]);
+        ImGui::Text("Disk Top Debug Colour 2");
+        ImGui::ColorEdit3("##ColourTop2", &m_diskDebugColourTop2[0]);
+        ImGui::Text("Disk Bottom Debug Colour 1");
+        ImGui::ColorEdit3("##ColourBottom1", &m_diskDebugColourBottom1[0]);
+        ImGui::Text("Disk Bottom Debug Colour 2");
+        ImGui::ColorEdit3("##ColourBottom2", &m_diskDebugColourBottom2[0]);
+    }
+    if (m_useDebugSphereTexture)
+    {
+        ImGui::Text("Sphere Debug Colour 1");
+        ImGui::ColorEdit3("##SphereColour1", &m_sphereDebugColour1[0]);
+        ImGui::Text("Sphere Debug Colour 2");
+        ImGui::ColorEdit3("##SphereColour2", &m_sphereDebugColour2[0]);
+    }
     ImGui::End();
 }

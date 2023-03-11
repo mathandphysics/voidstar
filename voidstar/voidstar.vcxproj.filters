@@ -59,6 +59,7 @@
   <ItemGroup>
     <None Include="res\shaders\BlackHoleFlat.shader" />
     <None Include="res\shaders\BlackHoleLensing.shader" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\textures\accretion_disk.jpg" />

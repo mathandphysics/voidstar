@@ -47,10 +47,9 @@ private:
 	Window m_Window;
 	Renderer& m_Renderer = Renderer::Get();
 	Menu m_Menu;
+	scene::SceneManager m_SceneManager;
 	Camera m_Camera;
 	Timer m_Timer;
 
 	ScreenshotOverlay m_screenshotOverlay;	
-
-	scene::SceneManager m_SceneManager;
 };

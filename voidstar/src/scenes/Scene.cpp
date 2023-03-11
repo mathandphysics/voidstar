@@ -66,3 +66,14 @@ void scene::SceneManager::SetCurrentScene(std::function<scene::Scene* ()> scene)
 {
 	m_CurrentScene = scene();
 }
+
+void scene::SceneManager::SetCurrentSceneByName(const std::string& name)
+{
+	for (auto& scene : m_SceneList)
+	{
+		if (name == scene.first)
+		{
+			scene::SceneManager::SetCurrentScene(scene.second);
+		}
+	}
+}

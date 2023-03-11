@@ -39,6 +39,7 @@ namespace scene
 
 		void DeleteCurrentScene();
 		void SetCurrentScene(std::function<scene::Scene* ()> scene);
+		void SetCurrentSceneByName(const std::string& name);
 
 		std::vector<std::pair<std::string, std::function<scene::Scene* ()>>>& GetSceneList() { return m_SceneList; }
 

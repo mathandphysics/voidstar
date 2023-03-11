@@ -75,6 +75,7 @@
     <Font Include="res\fonts\DroidSans.ttf" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="README.md" />
     <None Include="res\shaders\BlackHoleFlat.shader" />
     <None Include="res\shaders\BlackHoleLensing.shader" />
   </ItemGroup>

@@ -186,15 +186,15 @@ void Menu::ShowAboutModal(bool& showModal)
 void Menu::ShowControlsModal(bool& showModal)
 {
 	std::vector<std::vector<std::string>> controls = {
+	{"Esc", "Show/Hide GUI"},
 	{"W", "Forward"},
 	{"S", "Backward"},
 	{"A", "Left"},
 	{"D", "Right"},
 	{"Spacebar", "Up"},
 	{"Left Shift", "Down"},
-	{"Esc", "Show/Hide GUI"},
-	{"Right Click", "Take Screenshot"},
-	{"Mouse Wheel", "Change Movement Speed"}
+	{"Mouse Wheel", "Change Movement Speed"},
+	{"Right Click", "Take Screenshot"}
 	};
 
 	ImVec2 center = ImGui::GetMainViewport()->GetCenter();

@@ -79,6 +79,5 @@ void Application::SetScreenshotTaken(const std::string& fileName)
 
 void Application::LoadBlackHole()
 {
-	m_SceneManager.DeleteCurrentScene();
-	m_SceneManager.SetCurrentScene(m_SceneManager.GetSceneList()[0].second);
+	m_SceneManager.SetCurrentSceneByName("Black Hole");
 }

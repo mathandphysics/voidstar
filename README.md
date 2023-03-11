@@ -1,7 +1,7 @@
 # `void*`
 ## A Real-Time Black Hole Ray Tracer
 
-`void*` is a real-time black hole ray tracer.  Fly around and observe a black hole with accretion disk from any angle against the background of the Milky Way galaxy.
+`void*` is a real-time black hole ray tracer.  Fly around and observe a black hole with accretion disk against the background of the Milky Way galaxy.
 
 
 ### Screenshots

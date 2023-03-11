@@ -59,7 +59,6 @@
   <ItemGroup>
     <None Include="res\shaders\BlackHoleFlat.shader" />
     <None Include="res\shaders\BlackHoleLensing.shader" />
-    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\textures\accretion_disk.jpg" />
@@ -69,5 +68,10 @@
     <Image Include="res\textures\px.png" />
     <Image Include="res\textures\py.png" />
     <Image Include="res\textures\pz.png" />
+    <Image Include="docs\images\above_debug.jpeg" />
+    <Image Include="docs\images\afar.jpeg" />
+    <Image Include="docs\images\closeup_debug.jpeg" />
+    <Image Include="docs\images\mainshot.jpeg" />
+    <Image Include="docs\images\without_lensing.jpeg" />
   </ItemGroup>
 </Project>

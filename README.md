@@ -9,15 +9,15 @@
 
 ### Screenshots
 
-![Main shot](docs/images/mainshot.jpeg)
+![Main shot](voidstar/docs/images/mainshot.jpeg)
 
-![Afar](docs/images/afar.jpeg)
+![Afar](voidstar/docs/images/afar.jpeg)
 
-![Closeup Debug](docs/images/closeup_debug.jpeg)
+![Closeup Debug](voidstar/docs/images/closeup_debug.jpeg)
 
-![Above Debug](docs/images/above_debug.jpeg)
+![Above Debug](voidstar/docs/images/above_debug.jpeg)
 
-![Without Lensing](docs/images/without_lensing.jpeg)
+![Without Lensing](voidstar/docs/images/without_lensing.jpeg)
 
 
 ### Controls

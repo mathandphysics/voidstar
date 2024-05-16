@@ -29,6 +29,9 @@ public:
 	scene::SceneManager& GetSceneManager() { return m_SceneManager; }
 	Camera& GetCamera() { return m_Camera; }
 	Timer& GetTimer() { return m_Timer; }
+	Timer& GetFrameTimer() { return m_FrameTimer; }
+	Timer& GetSceneDrawTimer() { return m_SceneDrawTimer; }
+	Timer& GetGUIDrawTimer() { return m_GUIDrawTimer; }
 
 	void ResetCameraMousePos();
 	void SetScreenshotTaken(const std::string& fileName);
@@ -50,6 +53,9 @@ private:
 	scene::SceneManager m_SceneManager;
 	Camera m_Camera;
 	Timer m_Timer;
+	Timer m_FrameTimer;
+	Timer m_SceneDrawTimer;
+	Timer m_GUIDrawTimer;
 
 	ScreenshotOverlay m_screenshotOverlay;	
 };

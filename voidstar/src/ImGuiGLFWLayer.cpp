@@ -42,20 +42,17 @@ GLFWwindow* GLFWSetup()
     glfwWindowHint(GLFW_SAMPLES, 16);
 
     // Full screen
-    /*
     GLFWmonitor* primary = glfwGetPrimaryMonitor();
     const GLFWvidmode* mode = glfwGetVideoMode(primary);
     glfwWindowHint(GLFW_RED_BITS, mode->redBits);
     glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-    
     // Create a windowed full screen mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "OpenGL Renderer", primary, NULL);
-    */
+    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "void*", primary, NULL);
 
     // Normal windowed mode
-    GLFWwindow* window = glfwCreateWindow(1280, 720, "OpenGL Renderer", NULL, NULL);
+    //GLFWwindow* window = glfwCreateWindow(1280, 720, "void*", NULL, NULL);
 
     if (!window)
     {

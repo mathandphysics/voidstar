@@ -16,6 +16,7 @@ void Application::Run()
 {
 	while (m_Running)
 	{
+		m_FrameTimer.OnUpdate();
 		m_Timer.OnUpdate();
 		m_Window.PollEvents();
 		m_Window.StartImGuiFrame();
@@ -24,13 +25,17 @@ void Application::Run()
 		m_Camera.OnUpdate();
 		m_SceneManager.OnUpdate();
 
+		m_SceneDrawTimer.Start();
 		m_SceneManager.OnRender();
+		m_SceneDrawTimer.Stop();
 
+		m_GUIDrawTimer.Start();
 		if (m_Paused)
 		{
 			m_SceneManager.OnImGuiRender();
 			m_Menu.OnImGuiRender();
 		}
+		m_GUIDrawTimer.Stop();
 
 		if (m_screenshotOverlay.ShouldShow())
 		{

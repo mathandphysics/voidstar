@@ -4,9 +4,6 @@
 
 #include "BlackHole.h"
 
-#include "Skybox.h"
-#include "Shapes.h"
-
 namespace scene
 {
 

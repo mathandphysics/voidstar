@@ -1,7 +1,7 @@
 # `void*`
 ## A Real-Time Black Hole Ray Tracer
 
-`void*` is a real-time black hole ray tracer.  Fly around and observe a black hole with accretion disk against the background of the Milky Way galaxy.
+`void*` is a real-time black hole ray tracer.  Fly around and observe a black hole with accretion disk against the backdrop of the Milky Way galaxy.
 
 
 ### Screenshots
@@ -45,6 +45,8 @@ Use vcpkg to install the following:
 `vcpkg install glm:x64-windows glm:x64-windows-static`
 
 `vcpkg install glad[gl-api-46,loader]:x64-windows glad[gl-api-46,loader]:x64-windows-static`
+
+`vcpkg install stb:x64-windows stb:x64-windows-static`
 
 And make sure you've already used `vcpkg integrate install` so that Visual Studio can immediately use the installed packages.
 

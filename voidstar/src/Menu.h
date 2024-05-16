@@ -9,6 +9,7 @@ public:
 	void OnUpdate();
 	void OnRender();
 	void OnImGuiRender();
+	void ShowRenderStatistics();
 	void ShowSceneMenu();
 	void ShowSceneDropdown();
 	void ShowFileMenu();
@@ -18,6 +19,7 @@ public:
 
 private:
 	bool m_showFileMenu = true;
+	bool m_showRenderStatistics = false;
 	bool m_showSceneMenu = false;
 	bool m_showCameraControls = false;
 	bool m_showFPS = false;

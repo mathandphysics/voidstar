@@ -1,5 +1,4 @@
 #include "BlackHoleScene.h"
-#include "Renderer.h"
 
 scene::BlackHoleScene::BlackHoleScene()
 {

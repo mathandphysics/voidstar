@@ -4,8 +4,6 @@
 #include <string>
 #include <functional>
 
-#include "Window.h"
-
 namespace scene
 {
 

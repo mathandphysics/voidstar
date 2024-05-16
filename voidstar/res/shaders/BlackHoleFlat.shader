@@ -1,12 +1,13 @@
 #shader vertex
 #version 430 core
 layout(location = 0) in vec3 position;
+layout(location = 1) in vec2 tcs;
 
-out vec3 TexCoords;
+out vec2 TexCoords;
 
 void main()
 {
-    TexCoords = position;
+    TexCoords = tcs;
     gl_Position = vec4(position, 1.0);
 }
 
@@ -14,7 +15,7 @@ void main()
 #version 430 core
 out vec4 colour;
 
-in vec3 TexCoords;
+in vec2 TexCoords;
 
 uniform sampler2D diskTexture;
 uniform sampler2D sphereTexture;

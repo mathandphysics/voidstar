@@ -22,6 +22,11 @@ void Menu::OnRender()
 
 void Menu::OnImGuiRender()
 {
+	if (m_showRenderStatistics)
+	{
+		Menu::ShowRenderStatistics();
+	}
+
 	if (m_showSceneMenu)
 	{
 		Menu::ShowSceneMenu();
@@ -36,6 +41,23 @@ void Menu::OnImGuiRender()
 	{
 		Application::Get().GetCamera().OnImGuiRender();
 	}
+}
+
+void Menu::ShowRenderStatistics()
+{
+	ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;// | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+	imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar;
+	ImGui::Begin("Render Statistics", NULL, imgui_window_flags);
+
+	float frameTime = Application::Get().GetFrameTimer().GetAverageDeltaTime();
+	ImGui::Text("FPS: %.2f", 1 / frameTime);
+	ImGui::Text("Frame Time: %.4fs", frameTime);
+	float sceneDrawTime = Application::Get().GetSceneDrawTimer().GetAverageDeltaTime();
+	ImGui::Text("Scene Draw Time: %.6fs", sceneDrawTime);
+	float GUIDrawTime = Application::Get().GetGUIDrawTimer().GetAverageDeltaTime();
+	ImGui::Text("GUI Draw Time: %.6fs", GUIDrawTime);
+
+	ImGui::End();
 }
 
 void Menu::ShowSceneMenu()
@@ -108,6 +130,7 @@ void Menu::ShowFileMenu()
 		}
 		if (ImGui::BeginMenu("View"))
 		{
+			ImGui::Checkbox("Show Render Statistics", &m_showRenderStatistics);
 			//ImGui::Checkbox("Show Scene List Window", &m_showSceneMenu);
 			ImGui::Checkbox("Show Camera Controls", &m_showCameraControls);
 			//ImGui::Checkbox("Show FPS in Scene Window", &m_showFPS);
@@ -160,7 +183,7 @@ void Menu::ShowAboutModal(bool& showModal)
 	ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar;
 	if (ImGui::BeginPopupModal("About", NULL, flags))
 	{
-		char longestLine[] = "An OpenGL graphics renderer written in C++ with:";
+		char longestLine[] = "void*, a real-time black hole ray tracer written in C++ with:";
 		ImGui::Text(longestLine);
 		ImGui::Text("\nglfw for windowing\nglad for OpenGL function loading\nglm for math\nDear ImGui for the GUI\nstb_image for reading and writing images\n");
 

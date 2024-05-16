@@ -33,9 +33,11 @@ uniform float u_InnerRadius;
 uniform float u_OuterRadius;
 uniform float u_BHRadius;
 uniform float u_BHMass;
+uniform float u_a;
 uniform float u_diskRotationAngle;
 
 uniform int u_maxSteps;
+uniform float u_stepSize;
 uniform float u_maxDistance;
 uniform float u_epsilon;
 
@@ -48,27 +50,83 @@ uniform vec3 u_diskDebugColourTop2;
 uniform vec3 u_diskDebugColourBottom1;
 uniform vec3 u_diskDebugColourBottom2;
 
-layout (location=0) out vec4 fragColour;
-layout (location=1) out vec4 brightColour;
+layout(location = 0) out vec4 fragColour;
+layout(location = 1) out vec4 brightColour;
 
-float rayMarchSphereDistance(vec3 p, vec4 sphere)
+float implicitr(vec4 x)
 {
-    return length(p) - sphere.w;
+    // Calculate the implicit r value in the Kerr metric from the position.
+    // This ends up being a polynomial of the form r**4 + b*r**2 + c = 0.
+    vec3 p = x.yzw;
+    float b = u_a * u_a - dot(p, p);
+    float c = -u_a * u_a * p.y * p.y;
+    float r2 = 0.5 * (-b + sqrt(b * b - 4.0 * c));
+    return sqrt(r2);
 }
 
-float rayMarchDiskDistance(vec3 p, vec2 disk)
+mat4 diag(vec4 v)
 {
-    float xzPlaneLength = length(vec2(p.x, p.z));
-    // Signed distance from the outer edge of the disk.  It's positive when (p.x, p.z) is outside of the disk.
-    float outerDist = xzPlaneLength - disk.y;
-    // Signed distance from the inner edge of the disk.  It's positive when (p.x, p.z) is inside of the disk.
-    float innerDist = disk.x - xzPlaneLength;
-    // If (p.x, p.z) is outside of the disk, then xzDist = outerDist,
-    // if (p.x, p.z) is inside of the disk, then xzDist = innerDist,
-    // and if (p.x, p.z) is on the disk, then xzDist = 0.0.
-    float xzDist = max(max(outerDist, innerDist), 0.0);
-    // Exact ray march distance.
-    return sqrt(xzDist * xzDist + p.y * p.y);
+    return mat4(v.x, 0, 0, 0,
+                0, v.y, 0, 0,
+                0, 0, v.z, 0,
+                0, 0, 0, v.w);
+}
+
+mat4 metric(vec4 x)
+{
+    // Calculate the Kerr metric in Kerr-Schild coordinates at the point x.  G = c = 1.
+    vec3 p = x.yzw;
+    float r = implicitr(x);
+    float r2 = r * r;
+    float a2 = u_a * u_a;
+    float f = 2*u_BHMass*r2*r / (r2*r2 + u_a*u_a*p.y*p.y);
+    vec4 k = vec4(1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+    return diag(vec4(-1.0, 1.0, 1.0, 1.0)) + f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
+}
+
+mat4 invmetric(vec4 x)
+{
+    // Calculate the inverse Kerr metric in Kerr-Schild coordinates at the point x.  G = c = 1.
+    //return inverse(metric(x));
+    vec3 p = x.yzw;
+    float r = implicitr(x);
+    float r2 = r * r;
+    float a2 = u_a * u_a;
+    float f = 2 * u_BHMass * r2 * r / (r2 * r2 + u_a * u_a * p.y * p.y);
+    vec4 k = vec4(-1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+    return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
+}
+
+float hamiltonian(vec4 x, vec4 p)
+{
+    // Calculate the Super-Hamiltonian for position x and momentum p.
+    return 0.5 * dot(invmetric(x) * p, p);
+}
+
+vec4 dHdx(vec4 x, vec4 p, float dx)
+{
+    // Naive dH/dx calculation.
+    vec4 dHdx;
+    dHdx[0] = hamiltonian(x + vec4(dx, 0.0, 0.0, 0.0), p);
+    dHdx[1] = hamiltonian(x + vec4(0.0, dx, 0.0, 0.0), p);
+    dHdx[2] = hamiltonian(x + vec4(0.0, 0.0, dx, 0.0), p);
+    dHdx[3] = hamiltonian(x + vec4(0.0, 0.0, 0.0, dx), p);
+    return (dHdx - hamiltonian(x, p)) / dx;
+}
+
+void integrationStep(inout vec4 x, inout vec4 p, float stepsize)
+{
+    // Let l (for lambda) be the affine parameter.  Then, according to Hamilton's equations from the Super-Hamiltonian,
+    // dx/dl = invmetric(x)*p      and      dp/dl = -dH/dx.
+    // So we can calcluate dH/dx naively to get dp/dl and then calculate p_new = p_old + dp = p_old - dH/dx * dl
+    // Here, dl is just an arbitrarily chosen step-size.  Making it smaller increases the simulation accuracy.
+    // Once we have p_new, we can calculate dx/dl = invmetric(x)*p_new
+    // and so x_new = x_old + dx = x_old + invmetric(x)*p_new * dl
+    float h = 0.01; // governs accuracy of dHdx
+    vec4 dpdl = dHdx(x, p, h);
+    float dl = stepsize;
+    p -= dpdl * dl;
+    x += invmetric(x) * p * dl;
 }
 
 vec3 getSphereColour(vec3 p, vec4 sphere)
@@ -90,7 +148,7 @@ vec3 getSphereColour(vec3 p, vec4 sphere)
 
     // Draw an actual texture instead.
     //vec2 uv = vec2(u, v);
-    //col = texture(sphereTexture, uv).xyz;
+    //col = texture(sphereTexture, uv);
 
     return col;
 }
@@ -130,78 +188,71 @@ vec3 getDiskColour(vec3 p, vec2 disk)
 
 vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 {
-    //int maxSteps = 2000;
     int maxSteps = u_maxSteps;
-    //float maxDistance = 1000.0;
     float maxDistance = u_maxDistance;
     float maxDistanceSquared = maxDistance * maxDistance;
-    //float epsilon = 0.0001;
     float epsilon = u_epsilon;
+    float stepsize = u_stepSize;
 
     vec3 col = vec3(0.0);
-    vec3 p = cameraPos;
+    vec4 x = vec4(0.0, cameraPos);
+    vec4 p = vec4(-1.0, rayDir);
 
-    float sphereDist, diskDist;
-    float rayMarchStepsize;
-    float curvedSpaceStepsize;
-    float stepsize;
-
-    float invMass = 1.0 / u_BHMass;
-    float BHDistSquared;
-    float BHDist;
-    float bendingAcceleration;
+    float dist;
+    float intersectionParameter;
+    vec4 planeIntersectionPoint;
+    bool hitDisk = false;
+    bool hitSphere = false;
+    vec4 previousx;
 
     for (int i = 0; i < maxSteps; i++)
     {
-        sphereDist = rayMarchSphereDistance(p, sphere);
-        diskDist = rayMarchDiskDistance(p, disk);
-        BHDistSquared = dot(p, p);
+        previousx = x;
+        integrationStep(x, p, stepsize);
+        dist = implicitr(x);
 
         // Check if the ray hit anything
-        // Sphere
-        if (sphereDist < epsilon)
+        // Disk
+        if (x.z * previousx.z < 0.0) // Check to see whether the Cartesian y-coordinate changed signs
         {
+            intersectionParameter = -previousx.z / (x.z - previousx.z);
+            planeIntersectionPoint = previousx + (x - previousx)*intersectionParameter;
+            dist = implicitr(planeIntersectionPoint);
+            if (dist < u_OuterRadius && dist > u_InnerRadius)
+            {
+                hitDisk = true;
+                col = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w), disk);
+                break;
+            }
+        }
+        // Sphere
+        else if (dist < u_BHMass + sqrt(u_BHMass * u_BHMass - u_a * u_a))
+        {
+            hitSphere = true;
             if (u_useDebugSphereTexture == 1)
             {
-                col = getSphereColour(p, sphere);
+                col = getSphereColour(x.yzw, sphere);
             }
             break;
         }
-        // Disk
-        else if (diskDist < epsilon)
-        {
-            col = getDiskColour(p, disk);
-            break;
-        }
         // Background
-        else if (BHDistSquared > maxDistanceSquared)
+        else if (dist > maxDistance)
         {
+            vec4 dir = invmetric(x) * p;
+            //vec4 dir = p;
             // Proper skybox usage is: texture(skybox, view_dir) where view_dir is a vec3.
-            col = texture(skybox, vec3(-rayDir.x, rayDir.y, rayDir.z)).xyz;
+            col = texture(skybox, vec3(-dir.y, dir.z, dir.w)).xyz;
             break;
         }
-
-        BHDist = sqrt(BHDistSquared);
-        rayMarchStepsize = min(sphereDist, diskDist);
-        // Note: u_BHMass / distBHSquared is a measure of how curved space is (G is taken to be 1).  The
-        // more space is curved, the smaller the step we want to take.  Likewise, if space is flatter, we want
-        // to take a larger step.  Therefore, our desired step size for the curving of light is inversely proportional
-        // to u_BHMass / distBHSquared.
-        curvedSpaceStepsize = BHDistSquared * invMass;
-        // The constant out front is just to help with accuracy and numerical stability, but it comes at
-        // the cost of more work for the GPU.  Smaller values give better accuracy and stability.
-        stepsize = 0.5 * min(rayMarchStepsize, curvedSpaceStepsize);
-
-        // Technically, this takes account not only the curvature of time (as in Newtonian gravity), but also
-        // the curvature of space.  In plain Newtonian, we'd have a 1.0 factor for the bending acceleration, but
-        // because we also know space curves and Einstein found that the curving of space doubles the bending,
-        // we simply account for this with a factor of 2.0.  For strictly Newtonian gravity, use 1.0, but then the
-        // photon rings will no longer be visible, e.g.  Technically speaking, the 2.0 is the result of the static weak-field
-        // limit of the Schwarzchild metric.  It is the classical Newtonian limit where we take 2*G*M/(c^2*r) << 1.
-        bendingAcceleration = 2.0 * u_BHMass / (BHDistSquared * BHDist);
-        rayDir = normalize(rayDir - stepsize * bendingAcceleration * p);
-        p += rayDir * stepsize;
+        
     }
+
+    if (!hitDisk && !hitSphere)
+    {
+        vec4 dir = invmetric(x) * p;
+        col = texture(skybox, vec3(-dir.y, dir.z, dir.w)).xyz;
+    }
+
 
     return col;
 }
@@ -214,7 +265,6 @@ void main()
     vec2 uv = (TexCoords - 0.5) * 2.0;
 
     // The image "screen" we're casting through in view space.
-    //vec4 screen = u_ProjInv * vec4(uv, 1.0, 1.0);
     vec4 screen = u_ProjInv * vec4(uv, 1.0, 1.0);
     // The ray direction in world space at the current pixel.
     vec3 rayDir = vec3(u_ViewInv * vec4(normalize(screen.xyz / screen.w), 0.0));

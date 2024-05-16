@@ -1,7 +1,5 @@
 #include "Scene.h"
 
-#include "imgui.h"
-
 #include "blackhole/BlackHoleScene.h"
 
 #include "Application.h"
@@ -12,7 +10,6 @@ scene::Scene::~Scene()
 	Renderer::Get().DeleteTextureCache();  // Let the shader cache persist.
 	Application::Get().GetCamera().Reset();
 }
-
 
 
 

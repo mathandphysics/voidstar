@@ -24,7 +24,7 @@
     <ClCompile Include="src\scenes\blackhole\BlackHole.cpp" />
     <ClCompile Include="src\scenes\blackhole\BlackHoleScene.cpp" />
     <ClCompile Include="src\scenes\Scene.cpp" />
-    <ClCompile Include="src\vendor\stb_image\stb_image.cpp" />
+    <ClCompile Include="src\Framebuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Application.h" />
@@ -49,8 +49,7 @@
     <ClInclude Include="src\scenes\blackhole\BlackHole.h" />
     <ClInclude Include="src\scenes\blackhole\BlackHoleScene.h" />
     <ClInclude Include="src\scenes\Scene.h" />
-    <ClInclude Include="src\vendor\stb_image\stb_image.h" />
-    <ClInclude Include="src\vendor\stb_image\stb_image_write.h" />
+    <ClInclude Include="src\Framebuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <Font Include="res\fonts\Cousine-Regular.ttf" />
@@ -59,6 +58,10 @@
   <ItemGroup>
     <None Include="res\shaders\BlackHoleFlat.shader" />
     <None Include="res\shaders\BlackHoleLensing.shader" />
+    <None Include="res\shaders\TextureToScreen.shader" />
+    <None Include="res\shaders\GaussianBlur.shader" />
+    <None Include="res\shaders\FinalBloom.shader" />
+    <None Include="res\shaders\KerrBlackHole.shader" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\textures\accretion_disk.jpg" />

@@ -1,5 +1,7 @@
 #pragma once
 
+void HelpMarker(const char* desc);
+
 class Menu
 {
 public:
@@ -10,6 +12,7 @@ public:
 	void OnRender();
 	void OnImGuiRender();
 	void ShowRenderStatistics();
+	void PrintRenderStatistics();
 	void ShowSceneMenu();
 	void ShowSceneDropdown();
 	void ShowFileMenu();

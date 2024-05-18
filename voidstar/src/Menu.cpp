@@ -4,6 +4,19 @@
 #include "Application.h"
 
 
+void HelpMarker(const char* desc)
+{
+	ImGui::TextDisabled("(?)");
+	if (ImGui::BeginItemTooltip())
+	{
+		ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+		ImGui::TextUnformatted(desc);
+		ImGui::PopTextWrapPos();
+		ImGui::EndTooltip();
+	}
+}
+
+
 Menu::Menu()
 {
 }
@@ -49,15 +62,20 @@ void Menu::ShowRenderStatistics()
 	imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar;
 	ImGui::Begin("Render Statistics", NULL, imgui_window_flags);
 
+	PrintRenderStatistics();
+
+	ImGui::End();
+}
+
+void Menu::PrintRenderStatistics()
+{
 	float frameTime = Application::Get().GetFrameTimer().GetAverageDeltaTime();
 	ImGui::Text("FPS: %.2f", 1 / frameTime);
 	ImGui::Text("Frame Time: %.4fs", frameTime);
 	float sceneDrawTime = Application::Get().GetSceneDrawTimer().GetAverageDeltaTime();
-	ImGui::Text("Scene Draw Time: %.6fs", sceneDrawTime);
+	ImGui::Text("CPU Time/frame: %.6fs", sceneDrawTime);
 	float GUIDrawTime = Application::Get().GetGUIDrawTimer().GetAverageDeltaTime();
-	ImGui::Text("GUI Draw Time: %.6fs", GUIDrawTime);
-
-	ImGui::End();
+	ImGui::Text("GPU Time/frame: %.6fs", GUIDrawTime);
 }
 
 void Menu::ShowSceneMenu()
@@ -128,6 +146,7 @@ void Menu::ShowFileMenu()
 			app.GetCamera().CameraGUI();
 			ImGui::EndMenu();
 		}
+		/*
 		if (ImGui::BeginMenu("View"))
 		{
 			ImGui::Checkbox("Show Render Statistics", &m_showRenderStatistics);
@@ -136,6 +155,7 @@ void Menu::ShowFileMenu()
 			//ImGui::Checkbox("Show FPS in Scene Window", &m_showFPS);
 			ImGui::EndMenu();
 		}
+		*/
 
 		//Menu::ShowSceneDropdown();
 		Menu::ShowHelp();
@@ -185,12 +205,14 @@ void Menu::ShowAboutModal(bool& showModal)
 	{
 		char longestLine[] = "void*, a real-time black hole ray tracer written in C++ with:";
 		ImGui::Text(longestLine);
-		ImGui::Text("\nglfw for windowing\nglad for OpenGL function loading\nglm for math\nDear ImGui for the GUI\nstb_image for reading and writing images\n");
+		ImGui::Text("\nglfw for windowing\nglad for OpenGL function loading\nglm for math\nDear ImGui "
+			"for the GUI\nstb_image for reading and writing images\n");
 
 		ImVec2 vMin = ImGui::GetWindowContentRegionMin();
 		ImVec2 vMax = ImGui::GetWindowContentRegionMax();
 		ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + ImGui::CalcTextSize(longestLine).x);
-		ImGui::TextWrapped("\nThis is a small, personal project that I plan to use as a basis for future math and physics based graphics programs.");
+		ImGui::TextWrapped("\nThis is a small, personal project that I plan to use as a basis for future "
+			"math and physics based graphics programs.");
 		ImGui::PopTextWrapPos();
 
 		ImGui::Text("\nEnjoy!");

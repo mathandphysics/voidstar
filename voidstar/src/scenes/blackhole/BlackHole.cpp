@@ -60,28 +60,26 @@ BlackHole::BlackHole()
     m_diskTexturePath = "res/textures/accretion_disk.jpg";
     m_diskTexture = Renderer::Get().GetTexture(m_diskTexturePath, true);
 
-    m_sphereTexturePath = "res/textures/Blue_Marble_2002.png";
-    m_sphereTexture = Renderer::Get().GetTexture(m_sphereTexturePath, true);
+    if (m_useSphereTexture)
+    {
+        m_sphereTexturePath = "res/textures/Blue_Marble_2002.png";
+        m_sphereTexture = Renderer::Get().GetTexture(m_sphereTexturePath, true);
+    }
 
     std::shared_ptr<Shader> kerr_shader = Renderer::Get().GetShader(m_kerrBlackHoleShaderPath);
     kerr_shader->Bind();
-    kerr_shader->SetUniform1i("diskTexture", m_diskTextureSlot);
-    kerr_shader->SetUniform1i("skybox", m_skyboxTextureSlot);
-    kerr_shader->SetUniform1i("sphereTexture", m_sphereTextureSlot);
     SetShaderUniforms();
 
     std::shared_ptr<Shader> relativistic_shader = Renderer::Get().GetShader(m_gravitationalLensingShaderPath);
     relativistic_shader->Bind();
-    relativistic_shader->SetUniform1i("diskTexture", m_diskTextureSlot);
-    relativistic_shader->SetUniform1i("skybox", m_skyboxTextureSlot);
-    relativistic_shader->SetUniform1i("sphereTexture", m_sphereTextureSlot);
     SetShaderUniforms();
 
     std::shared_ptr<Shader> nonrelativistic_shader = Renderer::Get().GetShader(m_flatShaderPath);
     nonrelativistic_shader->Bind();
-    nonrelativistic_shader->SetUniform1i("diskTexture", m_diskTextureSlot);
-    nonrelativistic_shader->SetUniform1i("skybox", m_skyboxTextureSlot);
-    nonrelativistic_shader->SetUniform1i("sphereTexture", m_sphereTextureSlot);
+    SetShaderUniforms();
+
+    std::shared_ptr<Shader> flatspace_shader = Renderer::Get().GetShader(m_flatSpacetimeShaderPath);
+    flatspace_shader->Bind();
     SetShaderUniforms();
 
     FramebufferSpecification fbospec;
@@ -128,7 +126,7 @@ void BlackHole::OnUpdate()
     float deltaTime = Application::Get().GetTimer().GetDeltaTime();
     if (m_rotateDisk)
     {
-        m_diskRotationAngle += deltaTime * m_diskRotationSpeed;
+        m_diskRotationAngle -= deltaTime * m_diskRotationSpeed;
     }
 }
 
@@ -137,20 +135,22 @@ void BlackHole::Draw()
     // Draw to initial off-screen FBO
     m_fbo.Bind();
 
+    /*
     if (m_drawLensing)
     {
         //m_quad.SetShader(m_gravitationalLensingShaderPath);
         m_quad.SetShader(m_kerrBlackHoleShaderPath);
+        //m_quad.SetShader(m_flatSpacetimeShaderPath);
     }
     else
     {
-        m_quad.SetShader(m_flatShaderPath);
+        m_quad.SetShader(m_flatSpacetimeShaderPath);
+        //m_quad.SetShader(m_flatShaderPath);
     }
+    */
+    m_quad.SetShader(m_selectedShaderString);
     SetShaderUniforms();
     m_quad.Draw();
-    m_cubemap.Unbind();
-    m_diskTexture->Unbind();
-    m_sphereTexture->Unbind();
 
     m_fbo.Unbind();
 
@@ -189,6 +189,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1i("diskTexture", m_diskTextureSlot);
     shader->SetUniform1i("skybox", m_skyboxTextureSlot);
     shader->SetUniform1i("sphereTexture", m_sphereTextureSlot);
+    shader->SetUniform1i("u_useSphereTexture", m_useSphereTexture);
     shader->SetUniform1i("u_useDebugSphereTexture", (int)m_useDebugSphereTexture);
     shader->SetUniform1i("u_useDebugDiskTexture", (int)m_useDebugDiskTexture);
     shader->SetUniform3f("u_sphereDebugColour1", m_sphereDebugColour1[0], m_sphereDebugColour1[1], m_sphereDebugColour1[2]);
@@ -198,11 +199,21 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform3f("u_diskDebugColourBottom1", m_diskDebugColourBottom1[0], m_diskDebugColourBottom1[1], m_diskDebugColourBottom1[2]);
     shader->SetUniform3f("u_diskDebugColourBottom2", m_diskDebugColourBottom2[0], m_diskDebugColourBottom2[1], m_diskDebugColourBottom2[2]);
 
+    shader->SetUniform1i("u_bloom", m_useBloom);
+    shader->SetUniform1f("u_bloomThreshold", m_bloomThreshold);
+    shader->SetUniform1f("u_bloomBackgroundMultiplier", m_bloomBackgroundMultiplier);
+    shader->SetUniform1f("u_bloomDiskMultiplier", m_bloomDiskMultiplier);
+    shader->SetUniform1f("u_exposure", m_exposure);
+    shader->SetUniform1f("u_gamma", m_gamma);
+
     glm::vec3 cameraPos = Application::Get().GetCamera().GetPosition();
     shader->SetUniform3f("u_cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
 
     m_diskTexture->Bind(m_diskTextureSlot);
-    m_sphereTexture->Bind(m_sphereTextureSlot);
+    if (m_useSphereTexture)
+    {
+        m_sphereTexture->Bind(m_sphereTextureSlot);
+    }
     m_cubemap.Bind(m_skyboxTextureSlot);
 }
 
@@ -215,6 +226,7 @@ void BlackHole::SetScreenShaderUniforms()
     shader->SetUniform4f("u_ScreenSize", (float)vp[0], (float)vp[1], (float)vp[2], (float)vp[3]);
     shader->SetUniform1i("u_bloom", m_useBloom);
     shader->SetUniform1f("u_exposure", m_exposure);
+    shader->SetUniform1f("u_gamma", m_gamma);
     GLCall(glActiveTexture(GL_TEXTURE0 + m_screenTextureSlot));
     GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo.GetColourAttachments()[0]));
     GLCall(glActiveTexture(GL_TEXTURE0 + m_screenTextureSlot + 1));
@@ -289,77 +301,160 @@ void BlackHole::OnImGuiRender()
 {
     ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;
     imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing;
+    ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
     ImGui::Begin("Black Hole Controls", nullptr, imgui_window_flags);
     ImGui::PushItemWidth(-FLT_MIN);
-    ImGui::Text("Black Hole Properties:");
-    if (ImGui::SliderFloat("##BlackHoleMass", &m_mass, 0.0, 3.0, "Black Hole Mass = %.1f"))
+    if (ImGui::BeginTabBar("##BHTabBar", tab_bar_flags))
     {
-        m_radius = 2.0f * m_mass;
-        m_diskInnerRadius = 3.0f * m_radius;
-    }
-    ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 1.5f * m_radius, 5.0f * m_radius, "Inner Disk Radius = %.1f");
-    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 10.0f * m_radius,
-        "Outer Disk Radius = %.1f");
-    ImGui::SliderFloat("##a", &m_a, 0.0f, 1.0f, "a = %.2f");
-    ImGui::Separator();
-    ImGui::Separator();
-    ImGui::Text("Simulation Properties:");
-    ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 10000, "Max Steps = %d", 0);
-    ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 2.0f, "Step Size = %.2f");
-    //ImGui::SliderFloat("##MaxDistance", &m_maxDistance, 1.0f, 10000.0, "Max Distance = %.0f");
-    ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
-    ImGui::Separator();
-    ImGui::Separator();
-    if (ImGui::Checkbox("Gravitational Lensing", &m_drawLensing))
-    {
-        if (m_drawLensing)
+        if (ImGui::BeginTabItem("Simulation"))
         {
-            m_quad.SetShader(m_gravitationalLensingShaderPath);
+            ImGui::Text("Render statistics:");
+            Application::Get().GetMenu().PrintRenderStatistics();
+            if (ImGui::Checkbox("Vsync", &m_vsync))
+            {
+                glfwSwapInterval((int)m_vsync);
+            }
+            ImGui::Separator();
+            ImGui::Separator();
+            ImGui::Text("Black Hole Properties:");
+            ImGui::SameLine();
+            HelpMarker("Increasing Black Hole Mass increases the curving of space.  From the observer's perspective,"
+                " it's almost like zooming in.  The \"a\" parameter is a measure of the black hole's spin and only "
+                "works on the Kerr black hole.  Larger a results in a more squished black hole.  It might also "
+                "cause graphical artifacts to appear in the black hole's center.  If this happens, increase the "
+                "simulation quality below.");
+            if (ImGui::SliderFloat("##BlackHoleMass", &m_mass, 0.0, 3.0, "Black Hole Mass = %.1f"))
+            {
+                m_radius = 2.0f * m_mass;
+                m_diskInnerRadius = 3.0f * m_radius;
+            }
+            ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 1.5f * m_radius, 5.0f * m_radius, "Inner Disk Radius = %.1f");
+            ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 10.0f * m_radius,
+                "Outer Disk Radius = %.1f");
+            ImGui::SliderFloat("##a", &m_a, 0.0f, 1.0f, "a = %.2f");
+            ImGui::Separator();
+            ImGui::Separator();
+            ImGui::Text("Simulation Quality:");
+            ImGui::SameLine();
+            HelpMarker("Making Step Size smaller will increase the accuracy of the simulation.  However, it "
+                "can also make the ring or black hole disappear.  If this happens, increase Max Steps to "
+                "make everything reappear with greater accuracy.  WARNING: this will significantly increase "
+                "computational cost and slow down the simulation.");
+            ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 0.5f, "Step Size = %.2f");
+            ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 10000, "Max Steps = %d", 0);
+            //ImGui::SliderFloat("##MaxDistance", &m_maxDistance, 1.0f, 10000.0, "Max Distance = %.0f");
+            //ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
+            ImGui::Separator();
+            ImGui::Separator();
+            ImGui::Text("Black Hole Shader Selector:");
+            if (ImGui::RadioButton("Kerr BH", &m_shaderSelector, 0))
+            {
+                m_selectedShaderString = m_kerrBlackHoleShaderPath;
+                m_maxSteps = 200;
+            }
+            ImGui::SameLine();
+            HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  The parameter \"a\" above is the spin parameter.  a=0 is a non-rotating black hole.");
+            if (ImGui::RadioButton("Classical BH (Fast)", &m_shaderSelector, 1))
+            {
+                m_selectedShaderString = m_gravitationalLensingShaderPath;
+                m_maxSteps = 2000;
+            }
+            ImGui::SameLine();
+            HelpMarker("Inaccurate, non-rotating black hole based on Newtonian Gravity.");
+            if (ImGui::RadioButton("Minkowski BH", &m_shaderSelector, 2))
+            {
+                m_selectedShaderString = m_flatSpacetimeShaderPath;
+                m_maxSteps = 200;
+            }
+            ImGui::SameLine();
+            HelpMarker("Minkowski metric of General Relativity.  Equivalent to (but slower than) Flat BH (Fast).");
+            if (ImGui::RadioButton("Flat BH (Fast)", &m_shaderSelector, 3))
+            {
+                m_selectedShaderString = m_flatShaderPath;
+            }
+            ImGui::SameLine();
+            HelpMarker("Typical ray tracer using straight line rays/intersections.");
+
+            ImGui::Checkbox("Rotate Disk", &m_rotateDisk);
+            if (m_rotateDisk)
+            {
+                ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, 0.0f, 0.3f, "Rotation Speed = %.3f");
+            }
+
+            ImGui::Separator();
+            ImGui::Separator();
+            ImGui::Text("Debug Properties:");
+            ImGui::Checkbox("Disk Debug Texture", &m_useDebugDiskTexture);
+            ImGui::Checkbox("Sphere Debug Texture", &m_useDebugSphereTexture);
+
+            if (m_useDebugDiskTexture)
+            {
+                ImGui::Text("Disk Top Debug Colour 1");
+                ImGui::ColorEdit3("##ColourTop1", &m_diskDebugColourTop1[0]);
+                ImGui::Text("Disk Top Debug Colour 2");
+                ImGui::ColorEdit3("##ColourTop2", &m_diskDebugColourTop2[0]);
+                ImGui::Text("Disk Bottom Debug Colour 1");
+                ImGui::ColorEdit3("##ColourBottom1", &m_diskDebugColourBottom1[0]);
+                ImGui::Text("Disk Bottom Debug Colour 2");
+                ImGui::ColorEdit3("##ColourBottom2", &m_diskDebugColourBottom2[0]);
+            }
+            if (m_useDebugSphereTexture)
+            {
+                ImGui::Text("Sphere Debug Colour 1");
+                ImGui::ColorEdit3("##SphereColour1", &m_sphereDebugColour1[0]);
+                ImGui::Text("Sphere Debug Colour 2");
+                ImGui::ColorEdit3("##SphereColour2", &m_sphereDebugColour2[0]);
+            }
+
+            ImGui::Separator();
+            ImGui::Separator();
+
+            ImGui::EndTabItem();
         }
-        else
+
+        if (ImGui::BeginTabItem("Lighting/Colour"))
         {
-            m_quad.SetShader(m_flatShaderPath);
+            if (ImGui::Checkbox("Cinematic Mode", &m_useBloom))
+            {
+                m_bloomBackgroundMultiplier = 0.1f;
+            }
+            if (m_useBloom)
+            {
+                ImGui::Separator();
+                ImGui::Text("Graphics Presets:");
+                if (ImGui::RadioButton("Interstellar-esque", &m_presetSelector, 0))
+                {
+                    m_bloomThreshold = 0.95f;
+                    m_bloomBackgroundMultiplier = 0.1f;
+                    m_bloomDiskMultiplier = 2.5f;
+                    m_exposure = 0.4f;
+                    m_gamma = 0.7f;
+                }
+                if (ImGui::RadioButton("Dark Shadow", &m_presetSelector, 1))
+                {
+                    m_bloomThreshold = 0.8f;
+                    m_bloomBackgroundMultiplier = 0.1f;
+                    m_bloomDiskMultiplier = 3.1f;
+                    m_exposure = 0.2f;
+                    m_gamma = 0.2f;
+                }
+                ImGui::Separator();
+                ImGui::SliderFloat("##BloomThreshold", &m_bloomThreshold, 0.1f, 10.0f, "Bloom Threshold = %.1f");
+                ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.1f, 10.0f, "Background = %.1f");
+                ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.1f, 10.0f, "Disk = %.1f");
+                ImGui::SliderFloat("##Exposure", &m_exposure, 0.1f, 2.0f, "Exposure = %.2f");
+                ImGui::SliderFloat("##Gamma", &m_gamma, 0.1f, 3.0f, "Gamma = %.2f");
+            }
+
+            ImGui::Separator();
+            ImGui::Separator();
+
+
+            ImGui::EndTabItem();
         }
+
+        ImGui::EndTabBar();
+        ImGui::PopItemWidth();
     }
-    ImGui::Checkbox("Rotate Disk", &m_rotateDisk);
-    if (m_rotateDisk)
-    {
-        ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, -0.3f, 0.3f, "Rotation Speed = %.3f");
-    }
-
-    ImGui::Separator();
-    ImGui::Separator();
-    ImGui::Text("Debug Properties:");
-    ImGui::Checkbox("Disk Debug Texture", &m_useDebugDiskTexture);
-    ImGui::Checkbox("Sphere Debug Texture", &m_useDebugSphereTexture);
-
-    ImGui::Separator();
-    ImGui::Separator();
-
-    if (m_useDebugDiskTexture)
-    {
-        ImGui::Text("Disk Top Debug Colour 1");
-        ImGui::ColorEdit3("##ColourTop1", &m_diskDebugColourTop1[0]);
-        ImGui::Text("Disk Top Debug Colour 2");
-        ImGui::ColorEdit3("##ColourTop2", &m_diskDebugColourTop2[0]);
-        ImGui::Text("Disk Bottom Debug Colour 1");
-        ImGui::ColorEdit3("##ColourBottom1", &m_diskDebugColourBottom1[0]);
-        ImGui::Text("Disk Bottom Debug Colour 2");
-        ImGui::ColorEdit3("##ColourBottom2", &m_diskDebugColourBottom2[0]);
-    }
-    if (m_useDebugSphereTexture)
-    {
-        ImGui::Text("Sphere Debug Colour 1");
-        ImGui::ColorEdit3("##SphereColour1", &m_sphereDebugColour1[0]);
-        ImGui::Text("Sphere Debug Colour 2");
-        ImGui::ColorEdit3("##SphereColour2", &m_sphereDebugColour2[0]);
-    }
-
-    ImGui::Separator();
-    ImGui::Separator();
-
-    ImGui::Checkbox("Use Bloom", &m_useBloom);
-
-    ImGui::PopItemWidth();
     ImGui::End();
 }

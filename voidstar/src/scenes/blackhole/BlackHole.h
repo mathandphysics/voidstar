@@ -25,7 +25,7 @@ public:
 private:
 	float m_mass = 1.0f;
 	float m_radius = 2.0f * m_mass;
-	float m_diskInnerRadius = 3.0f * m_radius;
+	float m_diskInnerRadius = 2.5f * m_radius;
 	float m_diskOuterRadius = 9.0f * m_radius;
 	float m_a = 0.6f;
 
@@ -36,19 +36,31 @@ private:
 	bool m_drawLensing = true;
 	bool m_useDebugDiskTexture = false;
 	bool m_useDebugSphereTexture = false;
+	bool m_useSphereTexture = false;
+
+	bool m_vsync = true;
+
 	bool m_useBloom = false;
+	float m_bloomThreshold = 0.95f;
 	bool m_horizontalPass = true;
 	bool m_firstIteration = true;
-	float m_exposure = 1.0f;
+	int m_presetSelector = 0;
+	float m_bloomBackgroundMultiplier = 0.8f;
+	float m_bloomDiskMultiplier = 2.5f;
+	float m_exposure = 0.4f;
+	float m_gamma = 0.7f;
 	Framebuffer m_pingFBO;
 	Framebuffer m_pongFBO;
 
+	std::string m_flatSpacetimeShaderPath = "res/shaders/BlackHoleFlatSpacetime.shader";
 	std::string m_kerrBlackHoleShaderPath = "res/shaders/KerrBlackHole.shader";
 	std::string m_gravitationalLensingShaderPath = "res/shaders/BlackHoleLensing.shader";
 	std::string m_flatShaderPath = "res/shaders/BlackHoleFlat.shader";
 	std::string m_gaussianBlurShaderPath = "res/shaders/GaussianBlur.shader";
 	std::string m_BloomShaderPath = "res/shaders/FinalBloom.shader";
 	std::string m_textureToScreenShaderPath = "res/shaders/TextureToScreen.shader";
+	int m_shaderSelector = 0;
+	std::string m_selectedShaderString = m_kerrBlackHoleShaderPath;
 
 	QuadColoured m_quad;
 	Framebuffer m_fbo;
@@ -56,9 +68,9 @@ private:
 	std::vector<std::string> m_cubeTexturePaths;
 	TextureCubeMap m_cubemap;
 
-	int m_maxSteps = 1000;
-	float m_stepSize = 0.1f;
-	float m_maxDistance = 100.0f;
+	int m_maxSteps = 200;
+	float m_stepSize = 0.3f;
+	float m_maxDistance = 1000.0f;
 	float m_epsilon = 0.0001f;
 
 	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.1, 0.8, 0.2);

@@ -35,7 +35,6 @@ void Application::Run()
 			m_SceneManager.OnImGuiRender();
 			m_Menu.OnImGuiRender();
 		}
-		m_GUIDrawTimer.Stop();
 
 		if (m_screenshotOverlay.ShouldShow())
 		{
@@ -44,6 +43,7 @@ void Application::Run()
 
 		m_Window.EndImGuiFrame();
 		m_Window.SwapBuffers();
+		m_GUIDrawTimer.Stop();
 	}
 }
 

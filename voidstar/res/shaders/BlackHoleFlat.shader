@@ -95,7 +95,7 @@ vec3 getDiskColour(vec2 disk, vec3 p)
     else
     {
         vec2 uv = vec2(u, v);
-        col = texture(diskTexture, uv).xyz;
+        col = texture(diskTexture, uv).xyz * pow(v, 0.1);
     }
     return col;
 }

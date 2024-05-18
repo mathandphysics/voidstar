@@ -75,6 +75,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="res\shaders\BlackHoleFlat.shader" />
+    <None Include="res\shaders\BlackHoleFlatSpacetime.shader" />
     <None Include="res\shaders\BlackHoleLensing.shader" />
     <None Include="res\shaders\FinalBloom.shader" />
     <None Include="res\shaders\GaussianBlur.shader" />

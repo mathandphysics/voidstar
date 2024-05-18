@@ -41,8 +41,9 @@ uniform float u_stepSize;
 uniform float u_maxDistance;
 uniform float u_epsilon;
 
-uniform int u_useDebugSphereTexture;
-uniform int u_useDebugDiskTexture;
+uniform bool u_useSphereTexture;
+uniform bool u_useDebugSphereTexture;
+uniform bool u_useDebugDiskTexture;
 uniform vec3 u_sphereDebugColour1;
 uniform vec3 u_sphereDebugColour2;
 uniform vec3 u_diskDebugColourTop1;
@@ -50,17 +51,37 @@ uniform vec3 u_diskDebugColourTop2;
 uniform vec3 u_diskDebugColourBottom1;
 uniform vec3 u_diskDebugColourBottom2;
 
+uniform bool u_bloom;
+uniform float u_bloomThreshold;
+uniform float u_bloomBackgroundMultiplier;
+uniform float u_bloomDiskMultiplier;
+uniform float u_exposure;
+uniform float u_gamma;
+
 layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec4 brightColour;
 
+
+vec3 colorTemperatureToRGB(const in float temperature) {
+    // Valid from 1000 to 40000 K (and additionally 0 for pure full white)
+    // Values from: http://blenderartists.org/forum/showthread.php?270332-OSL-Goodness&p=2268693&viewfull=1#post2268693   
+    mat3 m = (temperature <= 6500.0) ? mat3(vec3(0.0, -2902.1955373783176, -8257.7997278925690),
+        vec3(0.0, 1669.5803561666639, 2575.2827530017594),
+        vec3(1.0, 1.3302673723350029, 1.8993753891711275)) :
+        mat3(vec3(1745.0425298314172, 1216.6168361476490, -8257.7997278925690),
+            vec3(-2666.3474220535695, -2173.1012343082230, 2575.2827530017594),
+            vec3(0.55995389139931482, 0.70381203140554553, 1.8993753891711275));
+    return mix(clamp(vec3(m[0] / (vec3(clamp(temperature, 1000.0, 40000.0)) + m[1]) + m[2]), vec3(0.0), vec3(1.0)), vec3(1.0), smoothstep(1000.0, 0.0, temperature));
+}
+
 float implicitr(vec4 x)
 {
-    // Calculate the implicit r value in the Kerr metric from the position.
-    // This ends up being a polynomial of the form r**4 + b*r**2 + c = 0.
+    // Calculate the implicitly defined r value in the Kerr-Schild coordinates from the position.
+    // This reduces to solving a polynomial of the form r**4 + b*r**2 + c = 0.
     vec3 p = x.yzw;
-    float b = u_a * u_a - dot(p, p);
-    float c = -u_a * u_a * p.y * p.y;
-    float r2 = 0.5 * (-b + sqrt(b * b - 4.0 * c));
+    float b = u_a*u_a - dot(p, p);
+    float c = -u_a*u_a * p.y*p.y;
+    float r2 = 0.5 * (-b + sqrt(b*b - 4.0*c));
     return sqrt(r2);
 }
 
@@ -75,57 +96,66 @@ mat4 diag(vec4 v)
 mat4 metric(vec4 x)
 {
     // Calculate the Kerr metric in Kerr-Schild coordinates at the point x.  G = c = 1.
+    // This differs slightly from the definition in https://arxiv.org/abs/0706.0622
+    // because that paper has Cartesian z as the up direction, while this program has Cartesian y
+    // as the up direction.
     vec3 p = x.yzw;
     float r = implicitr(x);
     float r2 = r * r;
     float a2 = u_a * u_a;
-    float f = 2*u_BHMass*r2*r / (r2*r2 + u_a*u_a*p.y*p.y);
-    vec4 k = vec4(1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+    float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
+    vec4 k = vec4(1.0, (r*p.x - u_a*p.z) / (r2 + a2), p.y / r, (r*p.z + u_a*p.x) / (r2 + a2));
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) + f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
 }
 
 mat4 invmetric(vec4 x)
 {
     // Calculate the inverse Kerr metric in Kerr-Schild coordinates at the point x.  G = c = 1.
-    //return inverse(metric(x));
+    // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
     vec3 p = x.yzw;
     float r = implicitr(x);
     float r2 = r * r;
     float a2 = u_a * u_a;
-    float f = 2 * u_BHMass * r2 * r / (r2 * r2 + u_a * u_a * p.y * p.y);
-    vec4 k = vec4(-1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+    float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
+    vec4 k = vec4(-1.0, (r*p.x - u_a*p.z) / (r2 + a2), p.y / r, (r*p.z + u_a*p.x) / (r2 + a2));
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
 }
 
-float hamiltonian(vec4 x, vec4 p)
+float H(vec4 x, vec4 p)
 {
     // Calculate the Super-Hamiltonian for position x and momentum p.
-    return 0.5 * dot(invmetric(x) * p, p);
+    return 0.5 * dot(invmetric(x)*p, p);
 }
 
 vec4 dHdx(vec4 x, vec4 p, float dx)
 {
     // Naive dH/dx calculation.
-    vec4 dHdx;
-    dHdx[0] = hamiltonian(x + vec4(dx, 0.0, 0.0, 0.0), p);
-    dHdx[1] = hamiltonian(x + vec4(0.0, dx, 0.0, 0.0), p);
-    dHdx[2] = hamiltonian(x + vec4(0.0, 0.0, dx, 0.0), p);
-    dHdx[3] = hamiltonian(x + vec4(0.0, 0.0, 0.0, dx), p);
-    return (dHdx - hamiltonian(x, p)) / dx;
+    vec4 Hdx;
+    Hdx[0] = H(x + vec4(dx, 0.0, 0.0, 0.0), p);
+    Hdx[1] = H(x + vec4(0.0, dx, 0.0, 0.0), p);
+    Hdx[2] = H(x + vec4(0.0, 0.0, dx, 0.0), p);
+    Hdx[3] = H(x + vec4(0.0, 0.0, 0.0, dx), p);
+    return (Hdx - H(x, p)) / dx;
 }
 
-void integrationStep(inout vec4 x, inout vec4 p, float stepsize)
+void integrationStep(inout vec4 x, inout vec4 p, float dl)
 {
-    // Let l (for lambda) be the affine parameter.  Then, according to Hamilton's equations from the Super-Hamiltonian,
-    // dx/dl = invmetric(x)*p      and      dp/dl = -dH/dx.
-    // So we can calcluate dH/dx naively to get dp/dl and then calculate p_new = p_old + dp = p_old - dH/dx * dl
+    // Let l (for lambda) be the affine parameter.  Then, according to Hamilton's equations for the Super-Hamiltonian,
+    // dx/dl = dH/dp = invmetric(x)*p      and      dp/dl = -dH/dx = -(1/2) * dot((d/dx)invmetric(x) * p, p).
+    // So we can calcluate dH/dx naively (and ignore the more complicated expression with (d/dx)invmetric(x) entirely)
+    // to get dp/dl and then update p by p_new = p_old + dp = p_old - dH/dx * dl
     // Here, dl is just an arbitrarily chosen step-size.  Making it smaller increases the simulation accuracy.
     // Once we have p_new, we can calculate dx/dl = invmetric(x)*p_new
-    // and so x_new = x_old + dx = x_old + invmetric(x)*p_new * dl
+    // and so we update x by x_new = x_old + dx = x_old + invmetric(x)*p_new * dl
+    // For more details, see https://web.mit.edu/edbert/GR/gr3.pdf.  The above is from equations (9) and (10)
+    // in that paper.
+
+    // TODO: check if it's faster to use the (d/dx)invmetric(x) expression since it only needs to construct one
+    // matrix and evaluate it at a single point.  Use the python metric script to generate code for the
+    // precomputed (d/dx)invmetric(x).
+
     float h = 0.01; // governs accuracy of dHdx
-    vec4 dpdl = dHdx(x, p, h);
-    float dl = stepsize;
-    p -= dpdl * dl;
+    p -= dHdx(x, p, h) * dl;
     x += invmetric(x) * p * dl;
 }
 
@@ -140,15 +170,21 @@ vec3 getSphereColour(vec3 p, vec4 sphere)
     vec3 normal = normalize(p);
     float u = (atan(normal.x, normal.z) + pi) / (2.0 * pi);
     float v = asin(normal.y) / pi + 0.5;
-    // Makes the checkerboard pattern on the sphere.
-    vec2 uvsignvec = sign(sin(2.0 * pi * vec2(sphere_latitudes * u, sphere_longitudes * v)));
-    float uvsign = uvsignvec.x * uvsignvec.y;
-    float uvscaled = (uvsign + 1.0) * 0.5;
-    col = uvscaled * u_sphereDebugColour1 + (1.0 - uvscaled) * u_sphereDebugColour2;
+    if (u_useDebugSphereTexture)
+    {
+        // Makes the checkerboard pattern on the sphere.
+        vec2 uvsignvec = sign(sin(2.0 * pi * vec2(sphere_latitudes * u, sphere_longitudes * v)));
+        float uvsign = uvsignvec.x * uvsignvec.y;
+        float uvscaled = (uvsign + 1.0) * 0.5;
+        col = uvscaled * u_sphereDebugColour1 + (1.0 - uvscaled) * u_sphereDebugColour2;
+    }
 
-    // Draw an actual texture instead.
-    //vec2 uv = vec2(u, v);
-    //col = texture(sphereTexture, uv);
+    else if (u_useSphereTexture)
+    {
+        // Draw an actual texture instead.
+        vec2 uv = vec2(u, v);
+        col = texture(sphereTexture, uv).xyz;
+    }
 
     return col;
 }
@@ -164,7 +200,7 @@ vec3 getDiskColour(vec3 p, vec2 disk)
     u = u - floor(u); // equivalent to fract(u) since we want u to be between 0 and 1.
     float v = 1.0 - (length(vec2(p.x, p.z)) - disk.x) / (disk.y - disk.x);
 
-    if (u_useDebugDiskTexture == 1)
+    if (u_useDebugDiskTexture)
     {
         // Makes alternating pattern between the two different colours.
         float usign = sign(sin(disk_divisions * 2.0 * pi * u));
@@ -188,60 +224,74 @@ vec3 getDiskColour(vec3 p, vec2 disk)
 
 vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 {
-    int maxSteps = u_maxSteps;
-    float maxDistance = u_maxDistance;
-    float maxDistanceSquared = maxDistance * maxDistance;
-    float epsilon = u_epsilon;
-    float stepsize = u_stepSize;
-
-    vec3 col = vec3(0.0);
+    // x and p are the 4-D position and momentum coordinates, respectively, in spacetime.
+    // Set x_t = 0 and p_t = -1.
     vec4 x = vec4(0.0, cameraPos);
     vec4 p = vec4(-1.0, rayDir);
+
+    vec3 col = vec3(0.0);
 
     float dist;
     float intersectionParameter;
     vec4 planeIntersectionPoint;
     bool hitDisk = false;
+    float horizon = u_BHMass + sqrt(u_BHMass*u_BHMass - u_a*u_a);
     bool hitSphere = false;
     vec4 previousx;
 
-    for (int i = 0; i < maxSteps; i++)
+    for (int i = 0; i < u_maxSteps; i++)
     {
         previousx = x;
-        integrationStep(x, p, stepsize);
+        integrationStep(x, p, u_stepSize);
         dist = implicitr(x);
 
-        // Check if the ray hit anything
-        // Disk
-        if (x.z * previousx.z < 0.0) // Check to see whether the Cartesian y-coordinate changed signs
+        // Check if the ray hit the disk
+        // Check to see whether the Cartesian y-coordinate changed signs, i.e. if the ray
+        // crossed the disk's plane.
+        if (x.z * previousx.z < 0.0)
         {
+            // Just draw a straight line between x and previousx.  This is a fine approximation when both
+            // points are close to the xz-plane.
             intersectionParameter = -previousx.z / (x.z - previousx.z);
             planeIntersectionPoint = previousx + (x - previousx)*intersectionParameter;
             dist = implicitr(planeIntersectionPoint);
             if (dist < u_OuterRadius && dist > u_InnerRadius)
             {
                 hitDisk = true;
+                // Need to pass in the sign of the previousx's Cartesian y-value to colour the
+                // top and bottom of the disk differently in debug mode.
                 col = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w), disk);
+
+                // Colouring of the disk is adapted from https://www.shadertoy.com/view/MctGWj
+                // Colouring is not based in physics and is just artistically determined.
+                // TODO: do a more realistic luminosity and colouring of the accretion disk
+                vec4 discVel = vec4(-(dist + u_a/sqrt(dist)), vec3(planeIntersectionPoint.w, 0.0, -planeIntersectionPoint.y) * sign(u_a) / sqrt(dist)) / sqrt(dist*dist - 3.0*dist + 2.0*u_a*sqrt(dist));
+                float blueshift = pow(dot(p, discVel),5.0)*5000.0;
+
+                col *= colorTemperatureToRGB(blueshift) * pow(dot(p, discVel), 3.0) / pow(dist, 1.0/5.0);
+                if (u_bloom)
+                {
+                    col *= u_bloomDiskMultiplier;
+                }
+                //col *= 3000.0 * colorTemperatureToRGB(blueshift) * pow(dot(p, discVel), 3.0) * (1.0 / pow(dist, 3.0)) * (1.0 - pow(u_InnerRadius / dist, 0.5));
                 break;
             }
         }
-        // Sphere
-        else if (dist < u_BHMass + sqrt(u_BHMass * u_BHMass - u_a * u_a))
+        // Check if the ray hit the sphere
+        else if (dist < horizon)
         {
             hitSphere = true;
-            if (u_useDebugSphereTexture == 1)
-            {
-                col = getSphereColour(x.yzw, sphere);
-            }
+            col = getSphereColour(x.yzw, sphere);
             break;
         }
         // Background
-        else if (dist > maxDistance)
+        else if (dist > u_maxDistance)
         {
-            vec4 dir = invmetric(x) * p;
-            //vec4 dir = p;
-            // Proper skybox usage is: texture(skybox, view_dir) where view_dir is a vec3.
-            col = texture(skybox, vec3(-dir.y, dir.z, dir.w)).xyz;
+            col = texture(skybox, vec3(-p.y, p.z, p.w)).xyz;
+            if (u_bloom)
+            {
+                col *= u_bloomBackgroundMultiplier;
+            }
             break;
         }
         
@@ -249,8 +299,12 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 
     if (!hitDisk && !hitSphere)
     {
-        vec4 dir = invmetric(x) * p;
-        col = texture(skybox, vec3(-dir.y, dir.z, dir.w)).xyz;
+        // Just cast the ray to the skybox.
+        col = texture(skybox, vec3(-p.y, p.z, p.w)).xyz;
+        if (u_bloom)
+        {
+            col *= u_bloomBackgroundMultiplier;
+        }
     }
 
 
@@ -273,11 +327,12 @@ void main()
     vec4 sphere = vec4(vec3(0.0), u_BHRadius);
     vec2 disk = vec2(u_InnerRadius, u_OuterRadius);
 
-    fragColour = vec4(rayMarch(sphere, disk, u_cameraPos, rayDir), 1.0);
+    vec3 rayRGB = rayMarch(sphere, disk, u_cameraPos, rayDir);
+    fragColour = vec4(rayRGB, 1.0);
 
     float brightness = dot(fragColour.rgb, vec3(0.2126, 0.7152, 0.0722));
     // TODO: adjust the rayMarch brightness for hdr
-    if (brightness > 0.95)
+    if (brightness > u_bloomThreshold)
         brightColour = vec4(fragColour.rgb, 1.0);
     else
         brightColour = vec4(0.0, 0.0, 0.0, 1.0);

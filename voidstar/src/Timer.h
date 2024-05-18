@@ -15,7 +15,7 @@ public:
 	float GetElapsedTime() { return m_elapsedTime; }
 
 private:
-	float m_beta = 0.95f;
+	float m_beta = 0.85f;
 	float m_previousTime = 0.0f;
 	float m_currentTime = 0.0f;
 	float m_deltaTime = 0.0f;

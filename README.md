@@ -29,7 +29,7 @@ draw debug colouring on both the accretion disk and sphere in order to better ma
 of what you're looking at.  By default, the top of the accretion disk and bottom of the
 accretion disk are coloured differently with this debug colouring.</p>
 
-### Screenshots
+### Other Screenshots
 
 ![Main shot](voidstar/docs/images/mainshot.jpeg)
 

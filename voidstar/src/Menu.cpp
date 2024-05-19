@@ -72,9 +72,9 @@ void Menu::PrintRenderStatistics()
 	float frameTime = Application::Get().GetFrameTimer().GetAverageDeltaTime();
 	ImGui::Text("FPS: %.2f", 1 / frameTime);
 	ImGui::Text("Frame Time: %.4fs", frameTime);
-	float sceneDrawTime = Application::Get().GetSceneDrawTimer().GetAverageDeltaTime();
+	float sceneDrawTime = Application::Get().GetCPUTimer().GetAverageDeltaTime();
 	ImGui::Text("CPU Time/frame: %.6fs", sceneDrawTime);
-	float GUIDrawTime = Application::Get().GetGUIDrawTimer().GetAverageDeltaTime();
+	float GUIDrawTime = Application::Get().GetGPUTimer().GetAverageDeltaTime();
 	ImGui::Text("GPU Time/frame: %.6fs", GUIDrawTime);
 }
 

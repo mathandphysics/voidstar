@@ -2,8 +2,8 @@
 
 #include "ImGuiGLFWLayer.h"
 
-Window::Window()
-    : m_Window(GLFWSetup())
+Window::Window(bool fullscreen)
+    : m_Window(GLFWSetup(fullscreen))
 {
     ImGuiSetup(m_Window);
 

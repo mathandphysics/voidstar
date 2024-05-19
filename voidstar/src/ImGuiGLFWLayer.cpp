@@ -25,7 +25,7 @@ void GLFWSetCallbacks(GLFWwindow* window)
 }
 
 
-GLFWwindow* GLFWSetup()
+GLFWwindow* GLFWSetup(bool fullscreen)
 {
     /* Initialize the library */
     glfwSetErrorCallback(glfw_error_callback);
@@ -41,18 +41,30 @@ GLFWwindow* GLFWSetup()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_SAMPLES, 16);
 
-    // Full screen
-    GLFWmonitor* primary = glfwGetPrimaryMonitor();
-    const GLFWvidmode* mode = glfwGetVideoMode(primary);
-    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-    // Create a windowed full screen mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "void*", primary, NULL);
+    int width;
+    int height;
+    GLFWmonitor* monitor;
 
-    // Normal windowed mode
-    //GLFWwindow* window = glfwCreateWindow(1280, 720, "void*", NULL, NULL);
+    if (fullscreen)
+    {
+        // Create a windowed full screen mode window and its OpenGL context
+        monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        width = mode->width;
+        height = mode->height;
+        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+    }
+    else
+    {
+        // Normal windowed mode
+        width = 1280;
+        height = 720;
+        monitor = NULL;
+    }
+    GLFWwindow* window = glfwCreateWindow(width, height, "void*", monitor, NULL);
 
     if (!window)
     {
@@ -82,7 +94,7 @@ void ImGuiSetup(GLFWwindow*& window)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
     //io.ConfigViewportsNoAutoMerge = true;
     //io.ConfigViewportsNoTaskBarIcon = true;

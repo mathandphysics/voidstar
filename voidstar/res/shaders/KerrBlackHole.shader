@@ -43,6 +43,7 @@ uniform float u_epsilon;
 
 uniform bool u_useSphereTexture;
 uniform bool u_useDebugSphereTexture;
+uniform bool u_drawBasicDisk;
 uniform bool u_useDebugDiskTexture;
 uniform vec3 u_sphereDebugColour1;
 uniform vec3 u_sphereDebugColour2;
@@ -57,6 +58,11 @@ uniform float u_bloomBackgroundMultiplier;
 uniform float u_bloomDiskMultiplier;
 uniform float u_exposure;
 uniform float u_gamma;
+uniform float u_brightnessFromDistance;
+uniform float u_brightnessFromDiskVel;
+uniform float u_colourshiftPower;
+uniform float u_colourshiftMultiplier;
+uniform float u_colourshiftOffset;
 
 layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec4 brightColour;
@@ -101,8 +107,8 @@ mat4 metric(vec4 x)
     // as the up direction.
     vec3 p = x.yzw;
     float r = implicitr(x);
-    float r2 = r * r;
-    float a2 = u_a * u_a;
+    float r2 = r*r;
+    float a2 = u_a*u_a;
     float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
     vec4 k = vec4(1.0, (r*p.x - u_a*p.z) / (r2 + a2), p.y / r, (r*p.z + u_a*p.x) / (r2 + a2));
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) + f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
@@ -114,11 +120,19 @@ mat4 invmetric(vec4 x)
     // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
     vec3 p = x.yzw;
     float r = implicitr(x);
-    float r2 = r * r;
-    float a2 = u_a * u_a;
+    float r2 = r*r;
+    float a2 = u_a*u_a;
     float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
     vec4 k = vec4(-1.0, (r*p.x - u_a*p.z) / (r2 + a2), p.y / r, (r*p.z + u_a*p.x) / (r2 + a2));
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
+}
+
+vec3 pToDir(vec4 x, vec4 p)
+{
+    // dx^i/dt = g^ij * p_j
+    // We discard the "time" direction, dx^0/dt.
+    vec4 dxdt = invmetric(x) * p;
+    return normalize(dxdt.yzw);
 }
 
 float H(vec4 x, vec4 p)
@@ -127,10 +141,11 @@ float H(vec4 x, vec4 p)
     return 0.5 * dot(invmetric(x)*p, p);
 }
 
-vec4 dHdx(vec4 x, vec4 p, float dx)
+vec4 dHdx(vec4 x, vec4 p)
 {
     // Naive dH/dx calculation.
     vec4 Hdx;
+    float dx = 0.01; // Governs accuracy of dHdx
     Hdx[0] = H(x + vec4(dx, 0.0, 0.0, 0.0), p);
     Hdx[1] = H(x + vec4(0.0, dx, 0.0, 0.0), p);
     Hdx[2] = H(x + vec4(0.0, 0.0, dx, 0.0), p);
@@ -154,8 +169,7 @@ void integrationStep(inout vec4 x, inout vec4 p, float dl)
     // matrix and evaluate it at a single point.  Use the python metric script to generate code for the
     // precomputed (d/dx)invmetric(x).
 
-    float h = 0.01; // governs accuracy of dHdx
-    p -= dHdx(x, p, h) * dl;
+    p -= dHdx(x, p) * dl;
     x += invmetric(x) * p * dl;
 }
 
@@ -225,12 +239,14 @@ vec3 getDiskColour(vec3 p, vec2 disk)
 vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 {
     // x and p are the 4-D position and momentum coordinates, respectively, in spacetime.
-    // Set x_t = 0 and p_t = -1.
+    // p_i = g_ij * dx^j/dt
+    // Set x_t = 0 and dx^0/dt = 1.
     vec4 x = vec4(0.0, cameraPos);
-    vec4 p = vec4(-1.0, rayDir);
+    vec4 p = metric(x) * vec4(1.0, normalize(rayDir));
 
     vec3 col = vec3(0.0);
 
+    vec3 dir;
     float dist;
     float intersectionParameter;
     vec4 planeIntersectionPoint;
@@ -262,18 +278,22 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
                 // top and bottom of the disk differently in debug mode.
                 col = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w), disk);
 
-                // Colouring of the disk is adapted from https://www.shadertoy.com/view/MctGWj
-                // Colouring is not based in physics and is just artistically determined.
-                // TODO: do a more realistic luminosity and colouring of the accretion disk
-                vec4 discVel = vec4(-(dist + u_a/sqrt(dist)), vec3(planeIntersectionPoint.w, 0.0, -planeIntersectionPoint.y) * sign(u_a) / sqrt(dist)) / sqrt(dist*dist - 3.0*dist + 2.0*u_a*sqrt(dist));
-                float blueshift = pow(dot(p, discVel),5.0)*5000.0;
+                // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
+                // Brightness goes roughly like 1/v**3
+                // TODO: do a more realistic colouring of the accretion disk
+                if (!u_drawBasicDisk)
+                {
+                    vec4 discVel = vec4(-(dist + u_a / sqrt(dist)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sign(u_a) / sqrt(dist)) / sqrt(dist * dist - 3.0 * dist + 2.0 * u_a * sqrt(dist));
+                    float colourLookup = pow(dot(p, discVel), -u_colourshiftPower) * u_colourshiftMultiplier + u_colourshiftOffset;
+                    float brightnessFromVel = pow(dot(p, discVel), u_brightnessFromDiskVel);
+                    float brightnessFromDistance = pow(dist / u_InnerRadius, u_brightnessFromDistance);
+                    col *= colorTemperatureToRGB(colourLookup) / (brightnessFromVel * brightnessFromDistance);
+                }
 
-                col *= colorTemperatureToRGB(blueshift) * pow(dot(p, discVel), 3.0) / pow(dist, 1.0/5.0);
                 if (u_bloom)
                 {
                     col *= u_bloomDiskMultiplier;
                 }
-                //col *= 3000.0 * colorTemperatureToRGB(blueshift) * pow(dot(p, discVel), 3.0) * (1.0 / pow(dist, 3.0)) * (1.0 - pow(u_InnerRadius / dist, 0.5));
                 break;
             }
         }
@@ -287,7 +307,8 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
         // Background
         else if (dist > u_maxDistance)
         {
-            col = texture(skybox, vec3(-p.y, p.z, p.w)).xyz;
+            dir = pToDir(x, p);
+            col = texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz;
             if (u_bloom)
             {
                 col *= u_bloomBackgroundMultiplier;
@@ -297,10 +318,11 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
         
     }
 
+    // If the ray went max steps without hitting anything, just cast the ray to the skybox.
     if (!hitDisk && !hitSphere)
     {
-        // Just cast the ray to the skybox.
-        col = texture(skybox, vec3(-p.y, p.z, p.w)).xyz;
+        dir = pToDir(x, p);
+        col = texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz;
         if (u_bloom)
         {
             col *= u_bloomBackgroundMultiplier;

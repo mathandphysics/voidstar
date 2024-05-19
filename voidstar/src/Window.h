@@ -11,7 +11,7 @@
 class Window
 {
 public:
-	Window();
+	Window(bool fullscreen);
 	~Window();
 
 	void StartImGuiFrame() const;

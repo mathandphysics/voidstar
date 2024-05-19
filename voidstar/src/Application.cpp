@@ -3,6 +3,7 @@
 #include "Camera.h"
 
 Application::Application()
+	: m_Window(m_fullScreen)
 {
 	ResetCameraMousePos();
 }
@@ -25,11 +26,11 @@ void Application::Run()
 		m_Camera.OnUpdate();
 		m_SceneManager.OnUpdate();
 
-		m_SceneDrawTimer.Start();
+		m_CPUTimer.Start();
 		m_SceneManager.OnRender();
-		m_SceneDrawTimer.Stop();
+		m_CPUTimer.Stop();
 
-		m_GUIDrawTimer.Start();
+		m_GPUDrawTimer.Start();
 		if (m_Paused)
 		{
 			m_SceneManager.OnImGuiRender();
@@ -43,7 +44,7 @@ void Application::Run()
 
 		m_Window.EndImGuiFrame();
 		m_Window.SwapBuffers();
-		m_GUIDrawTimer.Stop();
+		m_GPUDrawTimer.Stop();
 	}
 }
 

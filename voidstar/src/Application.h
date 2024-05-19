@@ -30,8 +30,8 @@ public:
 	Camera& GetCamera() { return m_Camera; }
 	Timer& GetTimer() { return m_Timer; }
 	Timer& GetFrameTimer() { return m_FrameTimer; }
-	Timer& GetSceneDrawTimer() { return m_SceneDrawTimer; }
-	Timer& GetGUIDrawTimer() { return m_GUIDrawTimer; }
+	Timer& GetCPUTimer() { return m_CPUTimer; }
+	Timer& GetGPUTimer() { return m_GPUDrawTimer; }
 
 	void ResetCameraMousePos();
 	void SetScreenshotTaken(const std::string& fileName);
@@ -44,6 +44,7 @@ private:
 public:
 
 private:
+	bool m_fullScreen = true;
 	bool m_Running = true;
 	bool m_Minimized = false;
 	bool m_Paused = true;
@@ -54,8 +55,8 @@ private:
 	Camera m_Camera;
 	Timer m_Timer;
 	Timer m_FrameTimer;
-	Timer m_SceneDrawTimer;
-	Timer m_GUIDrawTimer;
+	Timer m_CPUTimer;
+	Timer m_GPUDrawTimer;
 
 	ScreenshotOverlay m_screenshotOverlay;	
 };

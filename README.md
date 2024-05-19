@@ -1,8 +1,9 @@
 # `void*`
 ## A Real-Time Black Hole Ray Tracer
 
-<p><code>void*</code> is a real-time black hole ray tracer.  Fly around and observe a black hole
-with accretion disk against the backdrop of the Milky Way galaxy.</p>
+<p><code>void*</code> is a real-time black hole ray tracer written in C++ with OpenGL.
+Fly around and observe a black hole with accretion disk against the optional backdrop of
+the Milky Way galaxy.</p>
 
 ![Cinematic](voidstar/docs/images/cinematic.jpeg)
 
@@ -13,7 +14,8 @@ Namely, the Hamiltonian is given by</p>
 
 $$H(x^{\alpha}, p_{\beta}) = \frac{1}{2}g^{\mu \nu}(x^{\alpha})p_{\mu}p_{\nu}$$
 
-<p>For position $x$ and momentum $p$.  The system of 8 differential equations is</p>
+<p>For position $x$, momentum $p$, and metric tensor $g$.  The system of 8
+differential equations is</p>
 
 $$
 \begin{align}
@@ -22,12 +24,13 @@ $$
 \end{align}
 $$
 
-<p>These equations are solved numerically.  The integration method is generic and can support any metric tensor, but only the Kerr
-and Minkowski metrics are included.  A very simple "cinematic mode" is included with
-basic lighting adjustments to create neat images.  Additionally, <code>void*</code> can
-draw debug colouring on both the accretion disk and sphere in order to better make sense
-of what you're looking at.  By default, the top of the accretion disk and bottom of the
-accretion disk are coloured differently with this debug colouring.</p>
+<p>These equations are solved numerically.  The integration method is generic
+and can support any metric tensor, but only the Kerr and Minkowski metrics are currently
+included.  A "cinematic mode" is included with basic lighting adjustments to create
+neat images.  Additionally, <code>void*</code> can draw debug colouring on both the
+accretion disk and sphere in order to better make sense of what you're looking at.
+By default, the top of the accretion disk and bottom of the accretion disk are coloured
+differently with this debug colouring.</p>
 
 ### Other Screenshots
 
@@ -76,8 +79,10 @@ And make sure you've already used `vcpkg integrate install` so that Visual Studi
 Then just open the solution file in Visual Studio and compile.
 
 
-### Credits
+### Credits, Inspirations, and References
 
 - The skybox image of the Milky Way galaxy is thanks to the [European Space Agency](https://sci.esa.int/web/gaia/-/the-colour-of-the-sky-from-gaia-s-early-data-release-3-equirectangular-projection)
 
 - The accretion disk texture is from [this](https://github.com/rantonels/starless) excellent non-realtime black hole raytracer by Riccardo Antonelli.
+
+- The [blog](https://michaelmoroz.github.io/TracingGeodesics/) by Mykhailo Moroz was very helpful with the Hamiltonian dynamics.

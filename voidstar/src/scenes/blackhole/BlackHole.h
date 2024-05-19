@@ -9,6 +9,20 @@
 #include <vector>
 #include <iostream>
 
+
+struct graphicsPreset {
+	float bloomThreshold;
+	float bloomBackgroundMultiplier;
+	float bloomDiskMultiplier;
+	float exposure;
+	float gamma;
+	float brightnessFromDistance;
+	float brightnessFromDiskVel;
+	float colourshiftPower;
+	float colourshiftMultiplier;
+	float colourshiftOffset;
+};
+
 class BlackHole
 {
 public:
@@ -17,11 +31,28 @@ public:
 
 	void OnUpdate();
 	void Draw();
-	void SetShaderUniforms();
-	void SetScreenShaderUniforms();
 	void PostProcess();
 
+	void CreateScreenQuad();
+	void LoadTextures();
+	void CompileBHShaders();
+	void CompilePostShaders();
+	void CreateFBOs();
+
+	void SetShaderUniforms();
+	void SetScreenShaderUniforms();
+
+	float CalculateISCO(float m, float a);
+
 	void OnImGuiRender();
+	void ImGuiRenderStats();
+	void ImGuiBHProperties();
+	void ImGuiSimQuality();
+	void ImGuiChooseBH();
+	void ImGuiDebug();
+	void ImGuiCinematic();
+
+	void SetGraphicsPreset(graphicsPreset preset);
 private:
 	float m_mass = 1.0f;
 	float m_radius = 2.0f * m_mass;
@@ -34,13 +65,14 @@ private:
 	float m_diskRotationAngle = 0.0f;
 
 	bool m_drawLensing = true;
+	bool m_drawBasicDisk = false;
 	bool m_useDebugDiskTexture = false;
 	bool m_useDebugSphereTexture = false;
 	bool m_useSphereTexture = false;
 
 	bool m_vsync = true;
 
-	bool m_useBloom = false;
+	bool m_useBloom = true;
 	float m_bloomThreshold = 0.95f;
 	bool m_horizontalPass = true;
 	bool m_firstIteration = true;
@@ -49,6 +81,12 @@ private:
 	float m_bloomDiskMultiplier = 2.5f;
 	float m_exposure = 0.4f;
 	float m_gamma = 0.7f;
+	float m_brightnessFromDistance = 0.0f;
+	float m_brightnessFromDiskVel = 3.0f;
+	float m_colourshiftPower = 2.0f;
+	float m_colourshiftMultiplier = 4400.0f;
+	float m_colourshiftOffset = 0.0f;
+
 	Framebuffer m_pingFBO;
 	Framebuffer m_pongFBO;
 
@@ -62,7 +100,7 @@ private:
 	int m_shaderSelector = 0;
 	std::string m_selectedShaderString = m_kerrBlackHoleShaderPath;
 
-	QuadColoured m_quad;
+	Mesh m_quad;
 	Framebuffer m_fbo;
 
 	std::vector<std::string> m_cubeTexturePaths;
@@ -92,3 +130,4 @@ private:
 
 	glm::mat4 m_proj = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 1000.0f);
 };
+

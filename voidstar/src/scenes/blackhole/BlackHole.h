@@ -65,18 +65,21 @@ private:
 	float m_diskRotationAngle = 0.0f;
 
 	bool m_drawLensing = true;
+	bool m_transparentDisk = true;
 	bool m_drawBasicDisk = false;
 	bool m_useDebugDiskTexture = false;
 	bool m_useDebugSphereTexture = false;
 	bool m_useSphereTexture = false;
 
 	bool m_vsync = true;
+	int m_msaa = 1;
 
 	bool m_useBloom = true;
 	float m_bloomThreshold = 0.95f;
 	bool m_horizontalPass = true;
 	bool m_firstIteration = true;
 	int m_presetSelector = 0;
+	float m_diskAbsorption = 1.0f;
 	float m_bloomBackgroundMultiplier = 0.8f;
 	float m_bloomDiskMultiplier = 2.5f;
 	float m_exposure = 0.4f;

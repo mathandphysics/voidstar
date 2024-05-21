@@ -36,6 +36,8 @@ uniform float u_BHMass;
 uniform float u_a;
 uniform float u_diskRotationAngle;
 
+uniform int u_msaa;
+
 uniform int u_maxSteps;
 uniform float u_stepSize;
 uniform float u_maxDistance;
@@ -44,6 +46,7 @@ uniform float u_epsilon;
 uniform bool u_useSphereTexture;
 uniform bool u_useDebugSphereTexture;
 uniform bool u_drawBasicDisk;
+uniform bool u_transparentDisk;
 uniform bool u_useDebugDiskTexture;
 uniform vec3 u_sphereDebugColour1;
 uniform vec3 u_sphereDebugColour2;
@@ -54,6 +57,7 @@ uniform vec3 u_diskDebugColourBottom2;
 
 uniform bool u_bloom;
 uniform float u_bloomThreshold;
+uniform float u_diskAbsorption;
 uniform float u_bloomBackgroundMultiplier;
 uniform float u_bloomDiskMultiplier;
 uniform float u_exposure;
@@ -67,18 +71,6 @@ uniform float u_colourshiftOffset;
 layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec4 brightColour;
 
-
-vec3 colorTemperatureToRGB(const in float temperature) {
-    // Valid from 1000 to 40000 K (and additionally 0 for pure full white)
-    // Values from: http://blenderartists.org/forum/showthread.php?270332-OSL-Goodness&p=2268693&viewfull=1#post2268693   
-    mat3 m = (temperature <= 6500.0) ? mat3(vec3(0.0, -2902.1955373783176, -8257.7997278925690),
-        vec3(0.0, 1669.5803561666639, 2575.2827530017594),
-        vec3(1.0, 1.3302673723350029, 1.8993753891711275)) :
-        mat3(vec3(1745.0425298314172, 1216.6168361476490, -8257.7997278925690),
-            vec3(-2666.3474220535695, -2173.1012343082230, 2575.2827530017594),
-            vec3(0.55995389139931482, 0.70381203140554553, 1.8993753891711275));
-    return mix(clamp(vec3(m[0] / (vec3(clamp(temperature, 1000.0, 40000.0)) + m[1]) + m[2]), vec3(0.0), vec3(1.0)), vec3(1.0), smoothstep(1000.0, 0.0, temperature));
-}
 
 float implicitr(vec4 x)
 {
@@ -130,7 +122,7 @@ mat4 invmetric(vec4 x)
 vec3 pToDir(vec4 x, vec4 p)
 {
     // dx^i/dt = g^ij * p_j
-    // We discard the "time" direction, dx^0/dt.
+    // We discard the time "direction", dx^0/dt.
     vec4 dxdt = invmetric(x) * p;
     return normalize(dxdt.yzw);
 }
@@ -212,7 +204,7 @@ vec3 getDiskColour(vec3 p, vec2 disk)
 
     float u = (atan(p.x, p.z) + pi) / (2.0 * pi) - u_diskRotationAngle;
     u = u - floor(u); // equivalent to fract(u) since we want u to be between 0 and 1.
-    float v = 1.0 - (length(vec2(p.x, p.z)) - disk.x) / (disk.y - disk.x);
+    float v = clamp(1.0 - (length(vec2(p.x, p.z)) - disk.x) / (disk.y - disk.x), 0.0, 1.0);
 
     if (u_useDebugDiskTexture)
     {
@@ -231,10 +223,25 @@ vec3 getDiskColour(vec3 p, vec2 disk)
     else
     {
         vec2 uv = vec2(u, v);
-        col = texture(diskTexture, uv).xyz * pow(v, 0.1);
+        float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
+        col = texture(diskTexture, uv).xyz * radialDimming;
     }
     return col;
 }
+
+
+vec3 colorTemperatureToRGB(const in float temperature) {
+    // Valid from 1000 to 40000 K (and additionally 0 for pure full white)
+    // Values from: http://blenderartists.org/forum/showthread.php?270332-OSL-Goodness&p=2268693&viewfull=1#post2268693   
+    mat3 m = (temperature <= 6500.0) ? mat3(vec3(0.0, -2902.1955373783176, -8257.7997278925690),
+        vec3(0.0, 1669.5803561666639, 2575.2827530017594),
+        vec3(1.0, 1.3302673723350029, 1.8993753891711275)) :
+        mat3(vec3(1745.0425298314172, 1216.6168361476490, -8257.7997278925690),
+            vec3(-2666.3474220535695, -2173.1012343082230, 2575.2827530017594),
+            vec3(0.55995389139931482, 0.70381203140554553, 1.8993753891711275));
+    return mix(clamp(vec3(m[0] / (vec3(clamp(temperature, 1000.0, 40000.0)) + m[1]) + m[2]), vec3(0.0), vec3(1.0)), vec3(1.0), smoothstep(1000.0, 0.0, temperature));
+}
+
 
 vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 {
@@ -244,10 +251,27 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
     vec4 x = vec4(0.0, cameraPos);
     vec4 p = metric(x) * vec4(1.0, normalize(rayDir));
 
+    vec3 diskSample = vec3(0.0);
     vec3 col = vec3(0.0);
+
+    float bloomDiskMultiplier;
+    float bloomBackgroundMultiplier;
+    if (u_bloom)
+    {
+        bloomDiskMultiplier = u_bloomDiskMultiplier;
+        bloomBackgroundMultiplier = u_bloomBackgroundMultiplier;
+    }
+    else
+    {
+        bloomDiskMultiplier = 1.0;
+        bloomBackgroundMultiplier = 1.0;
+    }
 
     vec3 dir;
     float dist;
+    // Transmittance
+    float T = 1.0;
+    float absorption;
     float intersectionParameter;
     vec4 planeIntersectionPoint;
     bool hitDisk = false;
@@ -271,62 +295,61 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
             intersectionParameter = -previousx.z / (x.z - previousx.z);
             planeIntersectionPoint = previousx + (x - previousx)*intersectionParameter;
             dist = implicitr(planeIntersectionPoint);
-            if (dist < u_OuterRadius && dist > u_InnerRadius)
+            if (dist <= u_OuterRadius && dist >= u_InnerRadius)
             {
                 hitDisk = true;
                 // Need to pass in the sign of the previousx's Cartesian y-value to colour the
                 // top and bottom of the disk differently in debug mode.
-                col = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w), disk);
+                diskSample = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w), disk);
 
                 // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
-                // Brightness goes roughly like 1/v**3
                 // TODO: do a more realistic colouring of the accretion disk
+                // (see (vii) on page 33 of https://arxiv.org/pdf/1502.03808)
+                // For photons in free space, specific intensity (brightness) I(v) is proportional to 1/v**3
                 if (!u_drawBasicDisk)
                 {
                     vec4 discVel = vec4(-(dist + u_a / sqrt(dist)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sign(u_a) / sqrt(dist)) / sqrt(dist * dist - 3.0 * dist + 2.0 * u_a * sqrt(dist));
                     float colourLookup = pow(dot(p, discVel), -u_colourshiftPower) * u_colourshiftMultiplier + u_colourshiftOffset;
                     float brightnessFromVel = pow(dot(p, discVel), u_brightnessFromDiskVel);
                     float brightnessFromDistance = pow(dist / u_InnerRadius, u_brightnessFromDistance);
-                    col *= colorTemperatureToRGB(colourLookup) / (brightnessFromVel * brightnessFromDistance);
+                    //brightnessFromDistance = pow(pow(u_OuterRadius - dist, 1.0)/(u_OuterRadius - u_InnerRadius), -u_brightnessFromDistance);
+                    col += T * diskSample * colorTemperatureToRGB(colourLookup) / (brightnessFromVel * brightnessFromDistance) * u_bloomDiskMultiplier;
                 }
-
-                if (u_bloom)
+                else
                 {
-                    col *= u_bloomDiskMultiplier;
+                    col += T * diskSample * bloomDiskMultiplier;
                 }
-                break;
+                if (!u_transparentDisk || u_useDebugDiskTexture || T < 0.05)
+                {
+                    break;
+                }
+                // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
+                absorption = (diskSample.x + diskSample.y + diskSample.z) * u_diskAbsorption * (u_OuterRadius - dist);
+                T *= exp(-absorption);
             }
         }
         // Check if the ray hit the sphere
         else if (dist < horizon)
         {
             hitSphere = true;
-            col = getSphereColour(x.yzw, sphere);
+            col += T * getSphereColour(x.yzw, sphere);
             break;
         }
         // Background
         else if (dist > u_maxDistance)
         {
             dir = pToDir(x, p);
-            col = texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz;
-            if (u_bloom)
-            {
-                col *= u_bloomBackgroundMultiplier;
-            }
+            col += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
             break;
         }
         
     }
 
     // If the ray went max steps without hitting anything, just cast the ray to the skybox.
-    if (!hitDisk && !hitSphere)
+    if (!hitDisk && !hitSphere || !hitSphere && u_transparentDisk && !u_useDebugDiskTexture)
     {
         dir = pToDir(x, p);
-        col = texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz;
-        if (u_bloom)
-        {
-            col *= u_bloomBackgroundMultiplier;
-        }
+        col += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
     }
 
 
@@ -336,24 +359,37 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 
 void main()
 {
-    // Make UVs go from -1 to 1.
-    //vec2 uv = ((gl_FragCoord.xy / u_ScreenSize.zw) - 0.5) * 2.0;
-    vec2 uv = (TexCoords - 0.5) * 2.0;
+    vec3 col = vec3(0.0);
 
-    // The image "screen" we're casting through in view space.
-    vec4 screen = u_ProjInv * vec4(uv, 1.0, 1.0);
-    // The ray direction in world space at the current pixel.
-    vec3 rayDir = vec3(u_ViewInv * vec4(normalize(screen.xyz / screen.w), 0.0));
+    for (int i = 0; i < u_msaa; i++)
+    {
+        for (int j = 0; j < u_msaa; j++)
+        {
+            //vec2 uv = ((gl_FragCoord.xy / u_ScreenSize.zw) - 0.5) * 2.0;
 
-    // For simplicity, the sphere and disk are centered at (0,0,0).  The disk is in the xz-plane at y=0.
-    vec4 sphere = vec4(vec3(0.0), u_BHRadius);
-    vec2 disk = vec2(u_InnerRadius, u_OuterRadius);
+            // TexCoords go from 0 to 1 for both x and y.  uv will go from -1 to 1.
+            // TexCoordOffset is how to offset the original uv when we're using MSAA.
+            vec2 TexCoordOffset = vec2(float(i) / float(u_msaa + 1), float(j) / float(u_msaa + 1)) / u_ScreenSize.zw;
+            vec2 uv = (TexCoords + TexCoordOffset - 0.5) * 2.0;
 
-    vec3 rayRGB = rayMarch(sphere, disk, u_cameraPos, rayDir);
-    fragColour = vec4(rayRGB, 1.0);
+            // The image "screen" we're casting through in view space.
+            vec4 screen = u_ProjInv * vec4(uv, 1.0, 1.0);
+            // The ray direction in world space at the current pixel.
+            vec3 rayDir = vec3(u_ViewInv * vec4(normalize(screen.xyz / screen.w), 0.0));
+
+            // For simplicity, the sphere and disk are centered at (0,0,0).  The disk is in the xz-plane at y=0.
+            vec4 sphere = vec4(vec3(0.0), u_BHRadius);
+            vec2 disk = vec2(u_InnerRadius, u_OuterRadius);
+
+            col += rayMarch(sphere, disk, u_cameraPos, rayDir);
+        }
+    }
+
+    col /= float(u_msaa*u_msaa);
+
+    fragColour = vec4(col, 1.0);
 
     float brightness = dot(fragColour.rgb, vec3(0.2126, 0.7152, 0.0722));
-    // TODO: adjust the rayMarch brightness for hdr
     if (brightness > u_bloomThreshold)
         brightColour = vec4(fragColour.rgb, 1.0);
     else

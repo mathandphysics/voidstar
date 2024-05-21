@@ -5,7 +5,7 @@
 
 
 
-graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 0.4f, 0.7f, 0.0f, 3.0f, 2.0f, 4400.0f, 0.0f };
+graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 0.4f, 0.7f, 1.0f, 3.0f, 2.0f, 4400.0f, 0.0f };
 graphicsPreset interstellarPreset = { 1.6f, 0.1f, 10.0f, 0.49f, 0.56f, 1.0f, 3.0f, 1.9f, 2800.0f, 385.0f };
 graphicsPreset shadowPreset = { 0.7f, 0.1f, 4.8f, 0.43f, 0.19f, 0.0f, 5.2f, 0.0f, 40000.0f, 5000.0f };
 graphicsPreset celshadePreset = { 2.0f, 0.1f, 10.0f, 1.40f, 0.10f, 0.0f, 3.0f, 3.0f, 2100.0f, 385.0f };
@@ -193,6 +193,8 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_a", m_a);
     shader->SetUniform1f("u_diskRotationAngle", m_diskRotationAngle);
 
+    shader->SetUniform1i("u_msaa", m_msaa);
+
     shader->SetUniform1i("u_maxSteps", m_maxSteps);
     shader->SetUniform1f("u_stepSize", m_stepSize);
     shader->SetUniform1f("u_maxDistance", m_maxDistance);
@@ -204,6 +206,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1i("u_useSphereTexture", m_useSphereTexture);
     shader->SetUniform1i("u_useDebugSphereTexture", (int)m_useDebugSphereTexture);
     shader->SetUniform1i("u_drawBasicDisk", m_drawBasicDisk);
+    shader->SetUniform1i("u_transparentDisk", m_transparentDisk);
     shader->SetUniform1i("u_useDebugDiskTexture", (int)m_useDebugDiskTexture);
     shader->SetUniform3f("u_sphereDebugColour1", m_sphereDebugColour1[0], m_sphereDebugColour1[1], m_sphereDebugColour1[2]);
     shader->SetUniform3f("u_sphereDebugColour2", m_sphereDebugColour2[0], m_sphereDebugColour2[1], m_sphereDebugColour2[2]);
@@ -214,6 +217,7 @@ void BlackHole::SetShaderUniforms()
 
     shader->SetUniform1i("u_bloom", m_useBloom);
     shader->SetUniform1f("u_bloomThreshold", m_bloomThreshold);
+    shader->SetUniform1f("u_diskAbsorption", m_diskAbsorption);
     shader->SetUniform1f("u_bloomBackgroundMultiplier", m_bloomBackgroundMultiplier);
     shader->SetUniform1f("u_bloomDiskMultiplier", m_bloomDiskMultiplier);
     shader->SetUniform1f("u_brightnessFromDistance", m_brightnessFromDistance);
@@ -399,6 +403,12 @@ void BlackHole::ImGuiRenderStats()
     {
         glfwSwapInterval((int)m_vsync);
     }
+    ImGui::Text("Anti-Aliasing: WARNING!");
+    ImGui::SameLine();
+    HelpMarker("MSAA is a very expensive operation for a ray marcher.  As a rule of thumb, if your uncapped framerate at "
+                "MSAA=1 is F, then your framerate at MSAA=x will be roughly F/(x*x).  So, for example, going from MSAA=1 "
+                "to MSAA=3 will reduce framerate by a factor of 9.");
+    ImGui::SliderInt("##MSAA", &m_msaa, 1, 4, "MSAA = %d");
 }
 
 void BlackHole::ImGuiBHProperties()
@@ -433,6 +443,7 @@ void BlackHole::ImGuiBHProperties()
         float isco = CalculateISCO(m_mass, m_a);
         m_diskInnerRadius = isco;
     }
+    ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 7.0f, "Disk Absorption = %.1f");
     ImGui::Checkbox("Rotate Disk", &m_rotateDisk);
     if (m_rotateDisk)
     {
@@ -550,12 +561,12 @@ void BlackHole::ImGuiCinematic()
         }
         ImGui::Separator();
         ImGui::SliderFloat("##BloomThreshold", &m_bloomThreshold, 0.1f, 10.0f, "Bloom Threshold = %.1f");
-        ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.1f, 10.0f, "Background = %.1f");
+        ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 10.0f, "Background = %.1f");
         ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
         ImGui::SliderFloat("##Exposure", &m_exposure, 0.1f, 2.0f, "Exposure = %.2f");
         ImGui::SliderFloat("##Gamma", &m_gamma, 0.1f, 3.0f, "Gamma = %.2f");
-        ImGui::SliderFloat("##BrightnessFromDistance", &m_brightnessFromDistance, 0.0f, 1.0f, "Brightness from Distance = %.2f");
-        ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, -10.0f, 10.0f, "Disk Velocity Brightness = %.1f");
+        ImGui::SliderFloat("##BrightnessFromDistance", &m_brightnessFromDistance, 0.0f, 10.0f, "Brightness from Distance = %.2f");
+        ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
         ImGui::SliderFloat("##ColourshiftPower", &m_colourshiftPower, 0.0f, 10.0f, "Disk Colour Power = %.1f");
         ImGui::SliderFloat("##ColourshiftMultiplier", &m_colourshiftMultiplier, 100.0f, 40000.0f, "Disk Colour Multiplier = %.0f");
         ImGui::SliderFloat("##ColourshiftOffset", &m_colourshiftOffset, 0.0f, 5000.0f, "Disk Colour Offset = %.0f");

@@ -122,7 +122,7 @@ void Renderer::DrawLines(const VertexArray& va, const IndexBuffer& ib, const Sha
 
 void Renderer::DeleteShaderCache()
 {
-#ifdef _DEBUG
+#ifndef NDEBUG
     std::cout << "Deleting shader cache." << std::endl;
 #endif
     m_ShaderCache.erase(m_ShaderCache.begin(), m_ShaderCache.end());
@@ -132,7 +132,7 @@ void Renderer::DeleteTextureCache()
 {
     if (!m_TextureCache.empty())
     {
-#ifdef _DEBUG
+#ifndef NDEBUG
         std::cout << "Deleting texture cache." << std::endl;
 #endif
         m_TextureCache.erase(m_TextureCache.begin(), m_TextureCache.end());

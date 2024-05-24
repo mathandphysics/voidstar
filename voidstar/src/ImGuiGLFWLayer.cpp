@@ -18,6 +18,7 @@ void GLFWSetCallbacks(GLFWwindow* window)
 {
     glfwSetWindowCloseCallback(window, WindowCloseCallback);
     glfwSetFramebufferSizeCallback(window, WindowResizeCallback);
+    glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
     glfwSetKeyCallback(window, KeyPressCallback);
     glfwSetCursorPosCallback(window, MouseMovementCallback);
     glfwSetMouseButtonCallback(window, MouseButtonCallback);
@@ -25,64 +26,12 @@ void GLFWSetCallbacks(GLFWwindow* window)
 }
 
 
-GLFWwindow* GLFWSetup(bool fullscreen)
+void GLFWSetup()
 {
     /* Initialize the library */
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         exit(-1);
-
-    /* GLFW Window Hints */
-#ifdef _DEBUG
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
-#endif
-    // GL 4.3 + GLSL 430
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_SAMPLES, 16);
-
-    int width;
-    int height;
-    GLFWmonitor* monitor;
-
-    if (fullscreen)
-    {
-        // Create a windowed full screen mode window and its OpenGL context
-        monitor = glfwGetPrimaryMonitor();
-        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-        width = mode->width;
-        height = mode->height;
-        glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-        glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-        glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-        glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-    }
-    else
-    {
-        // Normal windowed mode
-        width = 1280;
-        height = 720;
-        monitor = NULL;
-    }
-    GLFWwindow* window = glfwCreateWindow(width, height, "void*", monitor, NULL);
-
-    if (!window)
-    {
-        glfwTerminate();
-        exit(-1);
-    }
-
-    /* Set callbacks */
-    GLFWSetCallbacks(window);
-
-    /* Set mouse to camera controls */
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    /* Make the window's context current */
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Enable vsync
-
-    return window;
 }
 
 
@@ -194,7 +143,7 @@ void LoadandSetupOpenGL()
     GLCall(glEnable(GL_MULTISAMPLE));
 
     /* Enable OpenGL Debugging */
-#ifdef _DEBUG
+#ifndef NDEBUG
     EnableOpenGLDebugging();
 #endif
 }

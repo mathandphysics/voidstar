@@ -16,7 +16,7 @@ struct graphicsPreset {
 	float bloomDiskMultiplier;
 	float exposure;
 	float gamma;
-	float brightnessFromDistance;
+	float brightnessFromRadius;
 	float brightnessFromDiskVel;
 	float colourshiftPower;
 	float colourshiftMultiplier;
@@ -52,11 +52,13 @@ public:
 	void ImGuiDebug();
 	void ImGuiCinematic();
 
+	void OnResize();
+	void SetProjectionMatrix();
 	void SetGraphicsPreset(graphicsPreset preset);
 private:
 	float m_mass = 1.0f;
 	float m_radius = 2.0f * m_mass;
-	float m_diskInnerRadius = 2.5f * m_radius;
+	float m_diskInnerRadius = 2.25f * m_radius;
 	float m_diskOuterRadius = 9.0f * m_radius;
 	float m_a = 0.6f;
 
@@ -71,7 +73,6 @@ private:
 	bool m_useDebugSphereTexture = false;
 	bool m_useSphereTexture = false;
 
-	bool m_vsync = true;
 	int m_msaa = 1;
 
 	bool m_useBloom = true;
@@ -84,14 +85,13 @@ private:
 	float m_bloomDiskMultiplier = 2.5f;
 	float m_exposure = 0.4f;
 	float m_gamma = 0.7f;
-	float m_brightnessFromDistance = 0.0f;
+	float m_brightnessFromRadius = 0.0f;
 	float m_brightnessFromDiskVel = 3.0f;
 	float m_colourshiftPower = 2.0f;
 	float m_colourshiftMultiplier = 4400.0f;
 	float m_colourshiftOffset = 0.0f;
 
-	Framebuffer m_pingFBO;
-	Framebuffer m_pongFBO;
+	bool m_setImGuiPosition = true;
 
 	std::string m_flatSpacetimeShaderPath = "res/shaders/BlackHoleFlatSpacetime.shader";
 	std::string m_kerrBlackHoleShaderPath = "res/shaders/KerrBlackHole.shader";
@@ -104,7 +104,9 @@ private:
 	std::string m_selectedShaderString = m_kerrBlackHoleShaderPath;
 
 	Mesh m_quad;
-	Framebuffer m_fbo;
+	std::shared_ptr<Framebuffer> m_fbo;
+	std::shared_ptr<Framebuffer> m_pingFBO;
+	std::shared_ptr<Framebuffer> m_pongFBO;
 
 	std::vector<std::string> m_cubeTexturePaths;
 	TextureCubeMap m_cubemap;
@@ -131,6 +133,7 @@ private:
 	unsigned int m_skyboxTextureSlot = 3;
 	unsigned int m_screenTextureSlot = 0;
 
-	glm::mat4 m_proj = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 1000.0f);
+	float m_FOVy = 60.0f; // in degrees
+	glm::mat4 m_proj;
 };
 

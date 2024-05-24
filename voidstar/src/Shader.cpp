@@ -21,7 +21,7 @@ Shader::Shader(const std::string& filepath)
 
 Shader::~Shader()
 {
-#ifdef _DEBUG
+#ifndef NDEBUG
     std::cout << "Deleting shader with ID: " << m_RendererID << std::endl;
 #endif
     GLCall(glDeleteProgram(m_RendererID));

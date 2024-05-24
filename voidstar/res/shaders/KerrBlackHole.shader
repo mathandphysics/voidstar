@@ -62,7 +62,7 @@ uniform float u_bloomBackgroundMultiplier;
 uniform float u_bloomDiskMultiplier;
 uniform float u_exposure;
 uniform float u_gamma;
-uniform float u_brightnessFromDistance;
+uniform float u_brightnessFromRadius;
 uniform float u_brightnessFromDiskVel;
 uniform float u_colourshiftPower;
 uniform float u_colourshiftMultiplier;
@@ -119,10 +119,22 @@ mat4 invmetric(vec4 x)
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * mat4(k.x * k, k.y * k, k.z * k, k.w * k);
 }
 
+float gravRedshift(vec4 emitterx, vec4 receiverx)
+{
+    // Calculates the ratio between frequency_emitted and frequency_received for an emitter located at
+    // emitterx and a receiver located at receiverx.
+    // Then frequency_received = redshift(emitterx, receiverx) * frequency_emitted.
+    // Here we assume that both the emitter and receiver are stationary and that the metric does not change with time.
+    // Under these assumptions, dlambda = sqrt(-g_00(x))dt, and we are just comparing the ratio between the dlambdas of
+    // the emitter and receiver.
+    // See: "Einstein Gravity in a Nutshell" by Zee.
+    return sqrt(metric(emitterx)[0][0] / metric(receiverx)[0][0]);
+}
+
 vec3 pToDir(vec4 x, vec4 p)
 {
     // dx^i/dt = g^ij * p_j
-    // We discard the time "direction", dx^0/dt.
+    // We discard the time "velocity", dx^0/dt.
     vec4 dxdt = invmetric(x) * p;
     return normalize(dxdt.yzw);
 }
@@ -165,7 +177,7 @@ void integrationStep(inout vec4 x, inout vec4 p, float dl)
     x += invmetric(x) * p * dl;
 }
 
-vec3 getSphereColour(vec3 p, vec4 sphere)
+vec3 getSphereColour(vec3 p)
 {
     vec3 col = vec3(0.0);
     float pi = 3.14159265359;
@@ -195,7 +207,7 @@ vec3 getSphereColour(vec3 p, vec4 sphere)
     return col;
 }
 
-vec3 getDiskColour(vec3 p, vec2 disk)
+vec3 getDiskColour(vec3 p)
 {
     float pi = 3.14159265359;
     vec3 col = vec3(0.0);
@@ -204,7 +216,7 @@ vec3 getDiskColour(vec3 p, vec2 disk)
 
     float u = (atan(p.x, p.z) + pi) / (2.0 * pi) - u_diskRotationAngle;
     u = u - floor(u); // equivalent to fract(u) since we want u to be between 0 and 1.
-    float v = clamp(1.0 - (length(vec2(p.x, p.z)) - disk.x) / (disk.y - disk.x), 0.0, 1.0);
+    float v = clamp(1.0 - (length(vec2(p.x, p.z)) - u_InnerRadius) / (u_OuterRadius - u_InnerRadius), 0.0, 1.0);
 
     if (u_useDebugDiskTexture)
     {
@@ -243,16 +255,15 @@ vec3 colorTemperatureToRGB(const in float temperature) {
 }
 
 
-vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
+void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk)
 {
     // x and p are the 4-D position and momentum coordinates, respectively, in spacetime.
-    // p_i = g_ij * dx^j/dt
-    // Set x_t = 0 and dx^0/dt = 1.
+    // p_i = g_ij * dx^j/dlambda
+    // Set x_t = 0 and dx^0/dlambda = 1.
     vec4 x = vec4(0.0, cameraPos);
     vec4 p = metric(x) * vec4(1.0, normalize(rayDir));
 
     vec3 diskSample = vec3(0.0);
-    vec3 col = vec3(0.0);
 
     float bloomDiskMultiplier;
     float bloomBackgroundMultiplier;
@@ -269,12 +280,10 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 
     vec3 dir;
     float dist;
-    // Transmittance
-    float T = 1.0;
+    float T = 1.0;  // Transmittance
     float absorption;
     float intersectionParameter;
     vec4 planeIntersectionPoint;
-    bool hitDisk = false;
     float horizon = u_BHMass + sqrt(u_BHMass*u_BHMass - u_a*u_a);
     bool hitSphere = false;
     vec4 previousx;
@@ -300,46 +309,50 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
                 hitDisk = true;
                 // Need to pass in the sign of the previousx's Cartesian y-value to colour the
                 // top and bottom of the disk differently in debug mode.
-                diskSample = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w), disk);
+                diskSample = getDiskColour(vec3(planeIntersectionPoint.y, sign(previousx.z), planeIntersectionPoint.w));
 
                 // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
                 // TODO: do a more realistic colouring of the accretion disk
                 // (see (vii) on page 33 of https://arxiv.org/pdf/1502.03808)
-                // For photons in free space, specific intensity (brightness) I(v) is proportional to 1/v**3
+                // For photons in free space, specific intensity / spectral radiance (brightness) I(\nu) is proportional to \nu**3
+                // See: https://en.wikipedia.org/wiki/Planck%27s_law#The_law for B_\nu(\nu, T)
+                // and https://en.wikipedia.org/wiki/Black-body_radiation#Doppler_effect
                 if (!u_drawBasicDisk)
                 {
                     vec4 discVel = vec4(-(dist + u_a / sqrt(dist)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sign(u_a) / sqrt(dist)) / sqrt(dist * dist - 3.0 * dist + 2.0 * u_a * sqrt(dist));
                     float colourLookup = pow(dot(p, discVel), -u_colourshiftPower) * u_colourshiftMultiplier + u_colourshiftOffset;
                     float brightnessFromVel = pow(dot(p, discVel), u_brightnessFromDiskVel);
-                    float brightnessFromDistance = pow(dist / u_InnerRadius, u_brightnessFromDistance);
-                    //brightnessFromDistance = pow(pow(u_OuterRadius - dist, 1.0)/(u_OuterRadius - u_InnerRadius), -u_brightnessFromDistance);
-                    col += T * diskSample * colorTemperatureToRGB(colourLookup) / (brightnessFromVel * brightnessFromDistance) * u_bloomDiskMultiplier;
+                    float brightnessFromRadius = pow(dist / u_InnerRadius, u_brightnessFromRadius);
+                    //brightnessFromRadius = pow(pow(u_OuterRadius - dist, 1.0)/(u_OuterRadius - u_InnerRadius), -u_brightnessFromRadius);
+                    rayCol += T * diskSample * colorTemperatureToRGB(colourLookup) / (brightnessFromVel * brightnessFromRadius) * u_bloomDiskMultiplier;
                 }
                 else
                 {
-                    col += T * diskSample * bloomDiskMultiplier;
+                    rayCol += T * diskSample * bloomDiskMultiplier;
                 }
                 if (!u_transparentDisk || u_useDebugDiskTexture || T < 0.05)
                 {
                     break;
                 }
                 // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
-                absorption = (diskSample.x + diskSample.y + diskSample.z) * u_diskAbsorption * (u_OuterRadius - dist);
+                vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
+                //absorption = (diskSample.x + diskSample.y + diskSample.z) * u_diskAbsorption * (u_OuterRadius - dist);
+                absorption = dot(brightnessMultiplier, diskSample) * u_diskAbsorption * (u_OuterRadius - dist);
                 T *= exp(-absorption);
             }
         }
-        // Check if the ray hit the sphere
+        // Check if the ray hit the sphere.
         else if (dist < horizon)
         {
             hitSphere = true;
-            col += T * getSphereColour(x.yzw, sphere);
+            rayCol += T * getSphereColour(x.yzw);
             break;
         }
-        // Background
+        // Check if the ray escaped the black hole and hit the skybox.
         else if (dist > u_maxDistance)
         {
             dir = pToDir(x, p);
-            col += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
+            rayCol += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
             break;
         }
         
@@ -349,22 +362,22 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
     if (!hitDisk && !hitSphere || !hitSphere && u_transparentDisk && !u_useDebugDiskTexture)
     {
         dir = pToDir(x, p);
-        col += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
+        rayCol += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
     }
-
-
-    return col;
 }
 
 
 void main()
 {
-    vec3 col = vec3(0.0);
+    vec3 pixelCol = vec3(0.0);
+    bool hitDisk = false;
 
     for (int i = 0; i < u_msaa; i++)
     {
         for (int j = 0; j < u_msaa; j++)
         {
+            bool rayHitDisk = false;
+            vec3 rayCol = vec3(0.0);
             //vec2 uv = ((gl_FragCoord.xy / u_ScreenSize.zw) - 0.5) * 2.0;
 
             // TexCoords go from 0 to 1 for both x and y.  uv will go from -1 to 1.
@@ -377,20 +390,22 @@ void main()
             // The ray direction in world space at the current pixel.
             vec3 rayDir = vec3(u_ViewInv * vec4(normalize(screen.xyz / screen.w), 0.0));
 
-            // For simplicity, the sphere and disk are centered at (0,0,0).  The disk is in the xz-plane at y=0.
-            vec4 sphere = vec4(vec3(0.0), u_BHRadius);
-            vec2 disk = vec2(u_InnerRadius, u_OuterRadius);
-
-            col += rayMarch(sphere, disk, u_cameraPos, rayDir);
+            // For simplicity, the BH and disk are centered at (0,0,0).  The disk is in the xz-plane at y=0.
+            rayMarch(u_cameraPos, rayDir, rayCol, rayHitDisk);
+            pixelCol += rayCol;
+            if (rayHitDisk)
+            {
+                hitDisk = true;
+            }
         }
     }
 
-    col /= float(u_msaa*u_msaa);
+    pixelCol /= float(u_msaa*u_msaa);
 
-    fragColour = vec4(col, 1.0);
-
+    fragColour = vec4(pixelCol, 1.0);
     float brightness = dot(fragColour.rgb, vec3(0.2126, 0.7152, 0.0722));
-    if (brightness > u_bloomThreshold)
+    // Only apply bloom to rays that hit the disk, never the background.
+    if (brightness > u_bloomThreshold && hitDisk)
         brightColour = vec4(fragColour.rgb, 1.0);
     else
         brightColour = vec4(0.0, 0.0, 0.0, 1.0);

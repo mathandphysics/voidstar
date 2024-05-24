@@ -9,7 +9,7 @@
 #include <memory>
 
 #define ASSERT(x) if (!(x)) __debugbreak();
-#ifdef _DEBUG
+#ifndef NDEBUG
 #define GLCall(x) GLClearError(); x; ASSERT(GLLogCall(#x, __FILE__, __LINE__))
 #else
 #define GLCall(x) x

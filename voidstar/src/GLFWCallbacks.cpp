@@ -21,7 +21,13 @@ void WindowCloseCallback(GLFWwindow* window)
 
 void WindowResizeCallback(GLFWwindow* window, int width, int height)
 {
-	GLCall(glViewport(0, 0, width, height));
+	Application::Get().OnResize(width, height);
+}
+
+
+void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+	Application::Get().OnResize(width, height);
 }
 
 
@@ -72,13 +78,17 @@ void Screenshot()
 	std::strftime(std::data(timeString), std::size(timeString), "%Y%m%d%H%M%S", &calendar);
 	timeString[14] = '\0';  // Guarantee timeString is null terminated for the string constructor.
 	std::string outFileName = timeString;
-	outFileName = "Screenshot_" + outFileName + ".png";
+	outFileName = "\nScreenshot_" + outFileName + ".png";
+#ifndef NDEBUG
 	std::cout << outFileName << '\n';
+#endif
 
 	GLCall(glPixelStorei(GL_PACK_ALIGNMENT, 1));
 	int w, h;
 	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &w, &h);
-	std::cout << w << ", " << h << std::endl;
+#ifndef NDEBUG
+	std::cout << "File dimensions: " << w << "x" << h << " pixels." << std::endl;
+#endif
 	int nSize = w * h * 3;
 	std::vector<char> dataBuffer(nSize);
 
@@ -86,6 +96,9 @@ void Screenshot()
 
 	stbi_flip_vertically_on_write(1);
 	stbi_write_png(outFileName.c_str(), w, h, 3, dataBuffer.data(), w * 3);
+#ifndef NDEBUG
+	std::cout << "Image written successfully.\n" << std::endl;
+#endif
 
 	Application::Get().SetScreenshotTaken(outFileName);
 }

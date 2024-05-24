@@ -22,3 +22,8 @@ void scene::BlackHoleScene::OnImGuiRender()
 {
     m_blackHole.OnImGuiRender();
 }
+
+void scene::BlackHoleScene::OnResize()
+{
+    m_blackHole.OnResize();
+}

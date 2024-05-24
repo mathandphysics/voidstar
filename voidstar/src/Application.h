@@ -18,6 +18,9 @@ public:
 	void Run();
 	void OnWindowClose();
 	void OnPause();
+	void ToggleVsync();
+	void ToggleFullscreen();
+	void OnResize(int width, int height);
 
 	static Application& Get()
 	{
@@ -34,6 +37,7 @@ public:
 	Timer& GetGPUTimer() { return m_GPUDrawTimer; }
 
 	void ResetCameraMousePos();
+	void ImGuiPrintRenderStats();
 	void SetScreenshotTaken(const std::string& fileName);
 
 	void LoadBlackHole();
@@ -45,6 +49,7 @@ public:
 
 private:
 	bool m_fullScreen = true;
+	bool m_Vsync = true;
 	bool m_Running = true;
 	bool m_Minimized = false;
 	bool m_Paused = true;

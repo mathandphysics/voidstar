@@ -5,7 +5,7 @@
 
 
 
-graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 0.4f, 0.7f, 1.0f, 3.0f, 2.0f, 4400.0f, 0.0f };
+graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 1.0f, 0.7f, 1.0f, 3.0f, 2.0f, 4400.0f, 0.0f };
 graphicsPreset interstellarPreset = { 1.6f, 0.1f, 10.0f, 0.49f, 0.56f, 1.0f, 3.0f, 1.9f, 2800.0f, 385.0f };
 graphicsPreset shadowPreset = { 0.7f, 0.1f, 4.8f, 0.43f, 0.19f, 0.0f, 5.2f, 0.0f, 40000.0f, 5000.0f };
 graphicsPreset celshadePreset = { 2.0f, 0.1f, 10.0f, 1.40f, 0.10f, 0.0f, 3.0f, 3.0f, 2100.0f, 385.0f };
@@ -16,7 +16,8 @@ BlackHole::BlackHole()
     CreateScreenQuad();
 
     // y=1 puts the camera slightly above the xz-plane of the accretion disk.
-    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -30.0f));
+    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -26.0f));
+    SetProjectionMatrix();
 
     LoadTextures();
     CompileBHShaders();
@@ -42,11 +43,11 @@ void BlackHole::OnUpdate()
 void BlackHole::Draw()
 {
     // Draw to initial off-screen FBO
-    m_fbo.Bind();
+    m_fbo->Bind();
     m_quad.SetShader(m_selectedShaderString);
     SetShaderUniforms();
     m_quad.Draw();
-    m_fbo.Unbind();
+    m_fbo->Unbind();
 
     // Post-processing
     PostProcess();
@@ -87,7 +88,8 @@ void BlackHole::CreateScreenQuad()
     layout.Push<float>(3);
     layout.Push<float>(2);
     m_quad.Initialize((const float*)&positions[0], 4, layout, triangles, 6, m_selectedShaderString);
-    m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(60.0f) / 2.0f)));
+    //m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(60.0f) / 2.0f)));
+    m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(m_FOVy) / 2.0f)));
     m_quad.SetProjection(m_proj, false);
 }
 
@@ -166,13 +168,13 @@ void BlackHole::CreateFBOs()
     fbospec.height = height;
     fbospec.width = width;
     fbospec.numColouredAttachments = 1;
-    m_pingFBO.SetSpecification(fbospec);
-    m_pingFBO.Unbind();
-    m_pongFBO.SetSpecification(fbospec);
-    m_pongFBO.Unbind();
+    m_pingFBO = std::make_shared<Framebuffer>(fbospec);
+    m_pingFBO->Unbind();
+    m_pongFBO = std::make_shared<Framebuffer>(fbospec);
+    m_pongFBO->Unbind();
     fbospec.numColouredAttachments = 2;
-    m_fbo.SetSpecification(fbospec);
-    m_fbo.Unbind();
+    m_fbo = std::make_shared<Framebuffer>(fbospec);
+    m_fbo->Unbind();
 }
 
 void BlackHole::SetShaderUniforms()
@@ -220,7 +222,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_diskAbsorption", m_diskAbsorption);
     shader->SetUniform1f("u_bloomBackgroundMultiplier", m_bloomBackgroundMultiplier);
     shader->SetUniform1f("u_bloomDiskMultiplier", m_bloomDiskMultiplier);
-    shader->SetUniform1f("u_brightnessFromDistance", m_brightnessFromDistance);
+    shader->SetUniform1f("u_brightnessFromRadius", m_brightnessFromRadius);
     shader->SetUniform1f("u_brightnessFromDiskVel", m_brightnessFromDiskVel);
     shader->SetUniform1f("u_colourshiftPower", m_colourshiftPower);
     shader->SetUniform1f("u_colourshiftMultiplier", m_colourshiftMultiplier);
@@ -250,15 +252,15 @@ void BlackHole::SetScreenShaderUniforms()
     shader->SetUniform1f("u_exposure", m_exposure);
     shader->SetUniform1f("u_gamma", m_gamma);
     GLCall(glActiveTexture(GL_TEXTURE0 + m_screenTextureSlot));
-    GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo.GetColourAttachments()[0]));
+    GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo->GetColourAttachments()[0]));
     GLCall(glActiveTexture(GL_TEXTURE0 + m_screenTextureSlot + 1));
     if (m_horizontalPass)
     {
-        GLCall(glBindTexture(GL_TEXTURE_2D, m_pongFBO.GetColourAttachments()[0]));
+        GLCall(glBindTexture(GL_TEXTURE_2D, m_pongFBO->GetColourAttachments()[0]));
     }
     else
     {
-        GLCall(glBindTexture(GL_TEXTURE_2D, m_pingFBO.GetColourAttachments()[0]));
+        GLCall(glBindTexture(GL_TEXTURE_2D, m_pingFBO->GetColourAttachments()[0]));
     }
 }
 
@@ -281,28 +283,28 @@ void BlackHole::PostProcess()
         {
             if (m_horizontalPass)
             {
-                m_pingFBO.Bind();
+                m_pingFBO->Bind();
                 GLCall(GLCall(glActiveTexture(GL_TEXTURE0 + m_screenTextureSlot)));
                 if (m_firstIteration)
                 {
-                    GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo.GetColourAttachments()[1]));
+                    GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo->GetColourAttachments()[1]));
                 }
                 else
                 {
-                    GLCall(glBindTexture(GL_TEXTURE_2D, m_pongFBO.GetColourAttachments()[0]));
+                    GLCall(glBindTexture(GL_TEXTURE_2D, m_pongFBO->GetColourAttachments()[0]));
                 }
             }
             else
             {
-                m_pongFBO.Bind();
+                m_pongFBO->Bind();
                 GLCall(GLCall(glActiveTexture(GL_TEXTURE0 + m_screenTextureSlot)));
                 if (m_firstIteration)
                 {
-                    GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo.GetColourAttachments()[1]));
+                    GLCall(glBindTexture(GL_TEXTURE_2D, m_fbo->GetColourAttachments()[1]));
                 }
                 else
                 {
-                    GLCall(glBindTexture(GL_TEXTURE_2D, m_pingFBO.GetColourAttachments()[0]));
+                    GLCall(glBindTexture(GL_TEXTURE_2D, m_pingFBO->GetColourAttachments()[0]));
                 }
             }
 
@@ -338,17 +340,22 @@ float BlackHole::CalculateISCO(float m, float a)
 
 void BlackHole::OnImGuiRender()
 {
-    // Fix the controls window to the right side of the screen.
-    ImVec2 work_size = ImGui::GetMainViewport()->WorkSize;
-    ImVec2 window_size = ImVec2(310, work_size.y);
-    ImVec2 window_pos = ImGui::GetMainViewport()->WorkPos;
-    window_pos[0] += work_size.x - window_size[0];
-    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Once);
-    ImGui::SetNextWindowSize(window_size, ImGuiCond_Once);
+    if (m_setImGuiPosition)
+    {
+        // Fix the controls window to the right side of the screen.
+        ImVec2 work_size = ImGui::GetWindowViewport()->WorkSize;
+        ImVec2 window_size = ImVec2(340, work_size.y);
+        ImVec2 window_pos = ImGui::GetWindowViewport()->WorkPos;
+        window_pos[0] += work_size.x - window_size[0];
+        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
+        ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
+        m_setImGuiPosition = !m_setImGuiPosition;
+    }
 
     ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;
     imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing;
     imgui_window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    imgui_window_flags |= ImGuiWindowFlags_NoSavedSettings;
     ImGui::Begin("Black Hole Controls", nullptr, imgui_window_flags);
     ImGui::PushItemWidth(-FLT_MIN);
     ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
@@ -397,12 +404,7 @@ void BlackHole::OnImGuiRender()
 
 void BlackHole::ImGuiRenderStats()
 {
-    ImGui::Text("Render statistics:");
-    Application::Get().GetMenu().PrintRenderStatistics();
-    if (ImGui::Checkbox("Vsync", &m_vsync))
-    {
-        glfwSwapInterval((int)m_vsync);
-    }
+    Application::Get().ImGuiPrintRenderStats();
     ImGui::Text("Anti-Aliasing: WARNING!");
     ImGui::SameLine();
     HelpMarker("MSAA is a very expensive operation for a ray marcher.  As a rule of thumb, if your uncapped framerate at "
@@ -563,15 +565,30 @@ void BlackHole::ImGuiCinematic()
         ImGui::SliderFloat("##BloomThreshold", &m_bloomThreshold, 0.1f, 10.0f, "Bloom Threshold = %.1f");
         ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 10.0f, "Background = %.1f");
         ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
-        ImGui::SliderFloat("##Exposure", &m_exposure, 0.1f, 2.0f, "Exposure = %.2f");
+        ImGui::SliderFloat("##Exposure", &m_exposure, 0.1f, 4.0f, "Exposure = %.2f");
         ImGui::SliderFloat("##Gamma", &m_gamma, 0.1f, 3.0f, "Gamma = %.2f");
-        ImGui::SliderFloat("##BrightnessFromDistance", &m_brightnessFromDistance, 0.0f, 10.0f, "Brightness from Distance = %.2f");
+        ImGui::SliderFloat("##brightnessFromRadius", &m_brightnessFromRadius, 0.0f, 10.0f, "Brightness from Radius = %.2f");
         ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
         ImGui::SliderFloat("##ColourshiftPower", &m_colourshiftPower, 0.0f, 10.0f, "Disk Colour Power = %.1f");
         ImGui::SliderFloat("##ColourshiftMultiplier", &m_colourshiftMultiplier, 100.0f, 40000.0f, "Disk Colour Multiplier = %.0f");
         ImGui::SliderFloat("##ColourshiftOffset", &m_colourshiftOffset, 0.0f, 5000.0f, "Disk Colour Offset = %.0f");
 
     }
+}
+
+void BlackHole::OnResize()
+{
+    CreateFBOs();
+    SetProjectionMatrix();
+    m_setImGuiPosition = true;
+}
+
+void BlackHole::SetProjectionMatrix()
+{
+    int width, height;
+    glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
+    m_proj = glm::perspective(glm::radians(m_FOVy), (float)width / (float)height, 0.1f, 1.0f);
+    m_quad.SetProjection(m_proj, false);
 }
 
 void BlackHole::SetGraphicsPreset(graphicsPreset preset)
@@ -581,7 +598,7 @@ void BlackHole::SetGraphicsPreset(graphicsPreset preset)
     m_bloomDiskMultiplier = preset.bloomDiskMultiplier;
     m_exposure = preset.exposure;
     m_gamma = preset.gamma;
-    m_brightnessFromDistance = preset.brightnessFromDistance;
+    m_brightnessFromRadius = preset.brightnessFromRadius;
     m_brightnessFromDiskVel = preset.brightnessFromDiskVel;
     m_colourshiftPower = preset.colourshiftPower;
     m_colourshiftMultiplier = preset.colourshiftMultiplier;

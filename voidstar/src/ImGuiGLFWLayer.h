@@ -5,7 +5,7 @@
 static void glfw_error_callback(int error, const char* description);
 void GLFWSetCallbacks(GLFWwindow* window);
 
-GLFWwindow* GLFWSetup(bool fullscreen);
+void GLFWSetup();
 void ImGuiSetup(GLFWwindow*& window);
 
 void ImGuiStartFrame();

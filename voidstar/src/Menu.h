@@ -12,7 +12,6 @@ public:
 	void OnRender();
 	void OnImGuiRender();
 	void ShowRenderStatistics();
-	void PrintRenderStatistics();
 	void ShowSceneMenu();
 	void ShowSceneDropdown();
 	void ShowFileMenu();

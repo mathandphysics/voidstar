@@ -18,8 +18,11 @@ Framebuffer::Framebuffer(const FramebufferSpecification& spec)
 Framebuffer::~Framebuffer()
 {
 	GLCall(glDeleteFramebuffers(1, &m_RendererID));
-	GLCall(glDeleteTextures(m_ColourAttachments.size(), m_ColourAttachments.data()));
+	GLCall(glDeleteTextures(static_cast<int>(m_ColourAttachments.size()), m_ColourAttachments.data()));
 	GLCall(glDeleteTextures(1, &m_DepthAttachment));
+#ifndef NDEBUG
+	std::cout << "Deleted framebuffer " << m_RendererID << "." << std::endl;
+#endif
 }
 
 void Framebuffer::SetSpecification(const FramebufferSpecification& spec)
@@ -33,7 +36,7 @@ void Framebuffer::Initialize()
 	if (m_RendererID)
 	{
 		GLCall(glDeleteFramebuffers(1, &m_RendererID));
-		GLCall(glDeleteTextures(m_ColourAttachments.size(), m_ColourAttachments.data()));
+		GLCall(glDeleteTextures(static_cast<int>(m_ColourAttachments.size()), m_ColourAttachments.data()));
 		GLCall(glDeleteTextures(1, &m_DepthAttachment));
 
 		m_ColourAttachments.clear();
@@ -43,6 +46,11 @@ void Framebuffer::Initialize()
 	GLCall(glGenFramebuffers(1, &m_RendererID));
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_RendererID));
 	m_ColourAttachments.assign(m_Specification.numColouredAttachments, 0);
+
+#ifndef NDEBUG
+	std::cout << "Creating framebuffer " << m_RendererID << " of size : " << m_Specification.width
+			  << " x " << m_Specification.height << std::endl;
+#endif
 
 	GLCall(glGenTextures(m_Specification.numColouredAttachments, m_ColourAttachments.data()));
 	std::vector<unsigned int> attachments;

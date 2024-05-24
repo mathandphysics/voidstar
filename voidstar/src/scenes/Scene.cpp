@@ -48,11 +48,19 @@ void scene::SceneManager::OnImGuiRender()
 	}
 }
 
+void scene::SceneManager::OnResize()
+{
+	if (m_CurrentScene)
+	{
+		m_CurrentScene->OnResize();
+	}
+}
+
 void scene::SceneManager::DeleteCurrentScene()
 {
 	if (m_CurrentScene)
 	{
-#ifdef _DEBUG
+#ifndef NDEBUG
 		std::cout << "Deleting current scene." << std::endl;
 #endif
 		delete m_CurrentScene;

@@ -113,8 +113,10 @@ private:
 
 	int m_maxSteps = 200;
 	float m_stepSize = 0.3f;
-	float m_maxDistance = 1000.0f;
+	float m_drawDistance = 100.0f;
 	float m_epsilon = 0.0001f;
+	float m_tolerance = 0.001f;
+	int m_ODESolverSelector = 2;
 
 	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.1, 0.8, 0.2);
 	glm::vec3 m_diskDebugColourTop2 = glm::vec3(0.02, 0.47, 0.87);

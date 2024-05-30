@@ -49,10 +49,10 @@ void BlackHole::Draw()
     m_quad.Draw();
     m_fbo->Unbind();
 
-    // Post-processing
+    // Post-processing off-screen
     PostProcess();
 
-    // Final draw to screen
+    // Final draw to screen from FBO
     m_quad.SetShader(m_BloomShaderPath);
     SetScreenShaderUniforms();
     m_quad.Draw();
@@ -199,8 +199,9 @@ void BlackHole::SetShaderUniforms()
 
     shader->SetUniform1i("u_maxSteps", m_maxSteps);
     shader->SetUniform1f("u_stepSize", m_stepSize);
-    shader->SetUniform1f("u_maxDistance", m_maxDistance);
+    shader->SetUniform1f("u_drawDistance", m_drawDistance);
     shader->SetUniform1f("u_epsilon", m_epsilon);
+    shader->SetUniform1f("u_tolerance", m_tolerance);
 
     shader->SetUniform1i("diskTexture", m_diskTextureSlot);
     shader->SetUniform1i("skybox", m_skyboxTextureSlot);
@@ -396,6 +397,18 @@ void BlackHole::OnImGuiRender()
             ImGui::EndTabItem();
         }
 
+#ifndef NDEBUG
+        if (ImGui::BeginTabItem("Camera Debug"))
+        {
+            Application::Get().GetCamera().DebugGUI();
+
+            ImGui::Separator();
+            ImGui::Separator();
+
+            ImGui::EndTabItem();
+        }
+#endif
+
         ImGui::EndTabBar();
         ImGui::PopItemWidth();
     }
@@ -463,8 +476,36 @@ void BlackHole::ImGuiSimQuality()
         "computational cost and slow down the simulation.");
     ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 0.5f, "Step Size = %.2f");
     ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 10000, "Max Steps = %d", 0);
-    //ImGui::SliderFloat("##MaxDistance", &m_maxDistance, 1.0f, 10000.0, "Max Distance = %.0f");
+    ImGui::Text("Tolerance:");
+    ImGui::SameLine();
+    HelpMarker("Test");
+    //ImGui::SliderFloat("##drawDistance", &m_drawDistance, 1.0f, 10000.0, "Max Distance = %.0f");
     //ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
+    ImGui::Text("ODE Solver:");
+    if (ImGui::RadioButton("Forward-Euler-Cromer", &m_ODESolverSelector, 0))
+    {
+    }
+    ImGui::SameLine();
+    HelpMarker("Least accurate, but fast.");
+    if (ImGui::RadioButton("Classic RK4", &m_ODESolverSelector, 1))
+    {
+    }
+    ImGui::SameLine();
+    HelpMarker("More accurate than Forward-Euler-Cromer, but it doesn't choose stepsize intelligently.");
+    if (ImGui::RadioButton("Adaptive RK2/3", &m_ODESolverSelector, 2))
+    {
+    }
+    ImGui::SameLine();
+    HelpMarker("Bogacki-Shampine Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.");
+    if (ImGui::RadioButton("Adaptive RK4/5", &m_ODESolverSelector, 3))
+    {
+    }
+    ImGui::SameLine();
+    HelpMarker("Dormand-Prince Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.");
+    if (m_ODESolverSelector == 2 || m_ODESolverSelector == 3)
+    {
+        ImGui::SliderFloat("##Tolerance", &m_tolerance, 0.00005f, 0.01f, "Tolerance = %.5f");
+    }
 }
 
 void BlackHole::ImGuiChooseBH()
@@ -553,7 +594,7 @@ void BlackHole::ImGuiCinematic()
         {
             SetGraphicsPreset(shadowPreset);
         }
-        if (ImGui::RadioButton("Cel-Shaded", &m_presetSelector, 2))
+        if (ImGui::RadioButton("Quasi Cel-Shaded", &m_presetSelector, 2))
         {
             SetGraphicsPreset(celshadePreset);
         }

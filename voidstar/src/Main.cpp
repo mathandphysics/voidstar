@@ -6,6 +6,7 @@ int WinMain()
 int main()
 #endif
 {
+
     Application& app = Application::Get();
     app.LoadBlackHole();
     app.Run();

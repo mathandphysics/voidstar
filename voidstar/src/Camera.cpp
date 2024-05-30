@@ -63,6 +63,16 @@ void Camera::CameraGUI()
 	}
 }
 
+void Camera::DebugGUI()
+{
+	ImGui::Text("Position.x = %.3f", (float)m_cameraPos.x);
+	ImGui::Text("Position.y = %.3f", (float)m_cameraPos.y);
+	ImGui::Text("Position.z = %.3f", (float)m_cameraPos.z);
+	ImGui::Text("Look.x = %.3f", (float)m_Look.x);
+	ImGui::Text("Look.y = %.3f", (float)m_Look.y);
+	ImGui::Text("Look.z = %.3f", (float)m_Look.z);
+}
+
 glm::mat4 Camera::GetView()
 {
 	return glm::lookAt(m_cameraPos, m_cameraPos + m_Look, m_Up);

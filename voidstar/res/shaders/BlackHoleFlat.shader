@@ -133,7 +133,7 @@ vec3 getSphereColour(vec4 sphere, vec3 p)
 vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 {
     int maxSteps = 1000;
-    float maxDistance = 1000;
+    float drawDistance = 1000;
     float epsilon = 0.0001;
     float pi = 3.14159265359;
 
@@ -160,7 +160,7 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
             col = getDiskColour(disk, p);
             break;
         }
-        else if (dist > maxDistance)
+        else if (dist > drawDistance)
         {
             // Proper skybox usage is: texture(skybox, view_dir) where view_dir is a vec3.
             col = texture(skybox, vec3( -rayDir.x, rayDir.y, rayDir.z )).xyz;

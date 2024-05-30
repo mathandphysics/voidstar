@@ -31,10 +31,10 @@ public:
 	Menu& GetMenu() { return m_Menu; }
 	scene::SceneManager& GetSceneManager() { return m_SceneManager; }
 	Camera& GetCamera() { return m_Camera; }
-	Timer& GetTimer() { return m_Timer; }
+	Timer& GetTimer() { return m_AppTimer; }
 	Timer& GetFrameTimer() { return m_FrameTimer; }
 	Timer& GetCPUTimer() { return m_CPUTimer; }
-	Timer& GetGPUTimer() { return m_GPUDrawTimer; }
+	Timer& GetGPUTimer() { return m_GPUTimer; }
 
 	void ResetCameraMousePos();
 	void ImGuiPrintRenderStats();
@@ -48,7 +48,7 @@ private:
 public:
 
 private:
-	bool m_fullScreen = true;
+	bool m_fullScreen = false;
 	bool m_Vsync = true;
 	bool m_Running = true;
 	bool m_Minimized = false;
@@ -58,10 +58,10 @@ private:
 	Menu m_Menu;
 	scene::SceneManager m_SceneManager;
 	Camera m_Camera;
-	Timer m_Timer;
+	Timer m_AppTimer;
 	Timer m_FrameTimer;
 	Timer m_CPUTimer;
-	Timer m_GPUDrawTimer;
+	Timer m_GPUTimer;
 
 	ScreenshotOverlay m_screenshotOverlay;	
 };

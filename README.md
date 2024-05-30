@@ -26,11 +26,13 @@ $$
 
 <p>where $\lambda$ parametrizes the geodesic.  These equations are solved numerically.
 The integration method is generic and can support any metric tensor, but only the Kerr
-and Minkowski metrics are currently included.  A "cinematic mode" is included with
-basic lighting adjustments to create neat images.  Additionally, <code>void*</code> can
-draw debug colouring on both the accretion disk and sphere in order to better make sense
-of what you're looking at.  By default, the top of the accretion disk and bottom of the
-accretion disk are coloured differently with this debug colouring.</p>
+and Minkowski metrics are currently included.</p>
+
+<p>A "cinematic mode" is included with basic lighting adjustments to create neat images.
+Additionally, <code>void*</code> can draw debug colouring on both the accretion disk and
+sphere in order to better make sense of what you're looking at.  By default, the top of
+the accretion disk and bottom of the accretion disk are coloured differently with this 
+debug colouring.</p>
 
 ### Other Screenshots
 

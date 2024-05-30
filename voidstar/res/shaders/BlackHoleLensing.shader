@@ -36,7 +36,7 @@ uniform float u_BHMass;
 uniform float u_diskRotationAngle;
 
 uniform int u_maxSteps;
-uniform float u_maxDistance;
+uniform float u_drawDistance;
 uniform float u_epsilon;
 
 uniform bool u_useSphereTexture;
@@ -139,9 +139,9 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
 {
     //int maxSteps = 2000;
     int maxSteps = u_maxSteps;
-    //float maxDistance = 1000.0;
-    float maxDistance = u_maxDistance;
-    float maxDistanceSquared = maxDistance * maxDistance;
+    //float drawDistance = 1000.0;
+    float drawDistance = u_drawDistance;
+    float drawDistanceSquared = drawDistance * drawDistance;
     float epsilon = 0.0001;
 
     vec3 col = vec3(0.0);
@@ -177,7 +177,7 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
             break;
         }
         // Background
-        else if (BHDistSquared > maxDistanceSquared)
+        else if (BHDistSquared > drawDistanceSquared)
         {
             // Proper skybox usage is: texture(skybox, view_dir) where view_dir is a vec3.
             col = texture(skybox, vec3(-rayDir.x, rayDir.y, rayDir.z)).xyz;

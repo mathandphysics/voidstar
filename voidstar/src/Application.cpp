@@ -17,20 +17,20 @@ void Application::Run()
 {
 	while (m_Running)
 	{
+		m_CPUTimer.Start();
 		m_FrameTimer.OnUpdate();
-		m_Timer.OnUpdate();
+		m_AppTimer.OnUpdate();
 		m_Window.PollEvents();
 		m_Window.StartImGuiFrame();
 		m_Renderer.Clear();
 
 		m_Camera.OnUpdate();
 		m_SceneManager.OnUpdate();
-
-		m_CPUTimer.Start();
-		m_SceneManager.OnRender();
 		m_CPUTimer.Stop();
 
-		m_GPUDrawTimer.Start();
+		m_GPUTimer.Start();
+		m_SceneManager.OnRender();
+
 		if (m_Paused)
 		{
 			m_SceneManager.OnImGuiRender();
@@ -44,7 +44,7 @@ void Application::Run()
 
 		m_Window.EndImGuiFrame();
 		m_Window.SwapBuffers();
-		m_GPUDrawTimer.Stop();
+		m_GPUTimer.Stop();
 	}
 }
 

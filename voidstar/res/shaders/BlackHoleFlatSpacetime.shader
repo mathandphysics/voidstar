@@ -38,7 +38,7 @@ uniform float u_diskRotationAngle;
 
 uniform int u_maxSteps;
 uniform float u_stepSize;
-uniform float u_maxDistance;
+uniform float u_drawDistance;
 uniform float u_epsilon;
 
 uniform bool u_useSphereTexture;
@@ -231,7 +231,7 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
             break;
         }
         // Background
-        else if (dist > u_maxDistance)
+        else if (dist > u_drawDistance)
         {
             col = texture(skybox, vec3(-p.y, p.z, p.w)).xyz;
             break;

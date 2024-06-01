@@ -42,13 +42,15 @@ public:
 	void SetShaderUniforms();
 	void SetScreenShaderUniforms();
 
+	float CalculateDrawDistance();
 	float CalculateISCO(float m, float a);
 
 	void OnImGuiRender();
 	void ImGuiRenderStats();
-	void ImGuiBHProperties();
-	void ImGuiSimQuality();
 	void ImGuiChooseBH();
+	void ImGuiBHProperties();
+	void ImGuiChooseODESolver();
+	void ImGuiSimQuality();
 	void ImGuiDebug();
 	void ImGuiCinematic();
 
@@ -62,7 +64,6 @@ private:
 	float m_diskOuterRadius = 9.0f * m_radius;
 	float m_a = 0.6f;
 
-	bool m_rotateDisk = true;
 	float m_diskRotationSpeed = 0.1f;
 	float m_diskRotationAngle = 0.0f;
 
@@ -115,7 +116,7 @@ private:
 	float m_stepSize = 0.3f;
 	float m_drawDistance = 100.0f;
 	float m_epsilon = 0.0001f;
-	float m_tolerance = 0.001f;
+	float m_tolerance = 0.01f;
 	int m_ODESolverSelector = 2;
 
 	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.1, 0.8, 0.2);

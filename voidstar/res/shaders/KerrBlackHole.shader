@@ -42,6 +42,7 @@ uniform int u_maxSteps;
 uniform float u_stepSize;
 uniform float u_drawDistance;
 uniform float u_epsilon;
+uniform int u_ODESolver;
 uniform float u_tolerance;
 
 uniform bool u_useSphereTexture;
@@ -109,8 +110,13 @@ mat4 metric(vec4 x)
 
 mat4 invmetric(vec4 x)
 {
+    // Naive implementation:
+    //return inverse(metric(x));
+
     // Calculate the inverse Kerr metric in Kerr-Schild coordinates at the position x.  G = c = 1.
     // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
+    // Due to the convenient nature of these coordinates, this has pretty much identical computational cost as
+    // the metric.
     vec3 p = x.yzw;
     float r = implicitr(x);
     float r2 = r*r;
@@ -136,8 +142,8 @@ vec3 pToDir(vec4 x, vec4 p)
 {
     // dx^i/dl = g^ij * p_j
     // We discard the time "velocity", dx^0/dl.
-    vec4 dxdt = invmetric(x) * p;
-    return normalize(dxdt.yzw);
+    vec4 dxdl = invmetric(x) * p;
+    return normalize(dxdl.yzw);
 }
 
 float H(vec4 x, vec4 p)
@@ -274,7 +280,7 @@ void RK45integrationStep(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, 
 }
 
 
-void adaptiveRKDriver(inout vec4 x, inout vec4 p, inout float stepsize)
+void adaptiveRK23Driver(inout vec4 x, inout vec4 p, inout float stepsize)
 {
     mat2x4 xp = mat2x4(x, p);
 
@@ -285,6 +291,15 @@ void adaptiveRKDriver(inout vec4 x, inout vec4 p, inout float stepsize)
     float stepsizeRatio;
     float ratio;
 
+    int BS_attempts = 10;
+    //float threshold = u_tolerance * 100.0;
+    float threshold = 0.01;
+    mat2x4 BSnextxp1;
+    mat2x4 BSnextxp2;
+    float leftEndpoint;
+    float rightEndpoint;
+    float midpoint;
+
     // Rather than running a while loop, which can crash the program in rare edge cases, we attempt to find
     // a stepsize that produces an acceptable error size in at most max_attempts.
     int max_attempts = 100;
@@ -292,7 +307,6 @@ void adaptiveRKDriver(inout vec4 x, inout vec4 p, inout float stepsize)
     {
         // TODO: Reduce this to one fewer xpupdate calls using the First Same As Last (FSAL) property.
         RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
-        //RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
 
         // Now adapt stepsize:
         // https://en.wikipedia.org/wiki/Adaptive_step_size
@@ -301,6 +315,14 @@ void adaptiveRKDriver(inout vec4 x, inout vec4 p, inout float stepsize)
         errormat = nextxp1 - nextxp2;
         // L2-norm error
         error = sqrt(dot(errormat[0], errormat[0]) + dot(errormat[1], errormat[1]));
+        /*
+        // Add an error when we cross the y-axis to force smaller steps there.  This works, but it's expensive.
+        // Probably better to try to do a binary search on stepsize.
+        if (nextxp2[0][2] * x[2] < 0.0)
+        {
+            error += abs(nextxp2[0][2] - x[2]) / 100.0;
+        }
+        */
 
         ratio = u_tolerance / error;
         // Sometimes error can be exactly 0.0 just due to luck, in which case ratio will diverge.
@@ -315,20 +337,176 @@ void adaptiveRKDriver(inout vec4 x, inout vec4 p, inout float stepsize)
         // choose numbers that are closer to 1.0.
         // 0.9 is also a safety term here to prevent needing to recalculate steps too often since we should be
         // spending most of our time with error very near tolerance.
-        stepsize *= clamp(0.9 * pow(ratio, 1.0 / 3.0), 0.2, 5.0);
 
         if (error <= u_tolerance)
         {
             // Successful step.
+            // Check here if nextxp2[0][2] and x[2] have different signs.  If so, then this step will cross the
+            // xz-plane.  Binary search on stepsize to get within some threshold of the xz-plane.  BUT save off
+            // the old stepsize and then keep that, but return the x,p points close to the disk.  After the binary
+            // search, make sure nextxp2[0][2] is still on the opposite side of the xz-plane as x[2].
+            // stepsize will be unaffected by the search.
+            if (nextxp2[0][2] * x[2] < 0.0)
+            {
+                if (abs(nextxp2[0][2]) > threshold)
+                {
+                    // Binary search on stepsize.
+                    // glsl doesn't support recursion, so we write a loop.
+                    leftEndpoint = 0;
+                    rightEndpoint = stepsize;
+                    for (int j = 0; j < BS_attempts; j++)
+                    {
+                        midpoint = (leftEndpoint + rightEndpoint) / 2.0;
+                        RK23integrationStep(xp, BSnextxp1, BSnextxp2, midpoint);
+                        if (BSnextxp2[0][2] * nextxp2[0][2] < 0.0)
+                        {
+                            // Then BSnextxp2[0][2] is on the wrong side of y=0 from nextxp2[0][2].
+                            leftEndpoint = midpoint;
+                        }
+                        else
+                        {
+                            if (abs(BSnextxp2[0][2]) < threshold)
+                            {
+                                // Then we're done-- copy into the matrices that will get outputted.
+                                nextxp2 = BSnextxp2;
+                                nextxp1 = BSnextxp1;
+                                break;
+                            }
+                            else
+                            {
+                                // Then the point is on the correct side, but too close to nextxp2[0][2].
+                                rightEndpoint = midpoint;
+                            }
+                        }
+                    }
+                }
+            }
+            stepsize *= clamp(0.9 * pow(ratio, 1.0 / 3.0), 0.2, 5.0);
             break;
         }
+
+        stepsize *= clamp(0.9 * pow(ratio, 1.0 / 3.0), 0.2, 5.0);
     }
 
-    //x = nextxp1[0];
-    //p = nextxp1[1];
     x = nextxp2[0];
     p = nextxp2[1];
 }
+
+
+void adaptiveRK45Driver(inout vec4 x, inout vec4 p, inout float stepsize)
+{
+    mat2x4 xp = mat2x4(x, p);
+
+    mat2x4 nextxp1;
+    mat2x4 nextxp2;
+    mat2x4 errormat;
+    float error;
+    float stepsizeRatio;
+    float ratio;
+
+    int BS_attempts = 10;
+    //float threshold = u_tolerance * 100.0;
+    float threshold = 0.01;
+    mat2x4 BSnextxp1;
+    mat2x4 BSnextxp2;
+    float leftEndpoint;
+    float rightEndpoint;
+    float midpoint;
+
+    // Rather than running a while loop, which can crash the program in rare edge cases, we attempt to find
+    // a stepsize that produces an acceptable error size in at most max_attempts.
+    int max_attempts = 100;
+    for (int i = 0; i < max_attempts; i++)
+    {
+        // TODO: Reduce this to one fewer xpupdate calls using the First Same As Last (FSAL) property.
+        RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
+
+        // Now adapt stepsize:
+        // https://en.wikipedia.org/wiki/Adaptive_step_size
+        // https://jonshiach.github.io/ODEs-book/pages/2.5_Adaptive_step_size_control.html
+        // Calculate the error
+        errormat = nextxp1 - nextxp2;
+        // L^2-norm error.
+        error = sqrt(dot(errormat[0], errormat[0]) + dot(errormat[1], errormat[1]));
+        /*
+        // Add an error when we cross the y-axis to force smaller steps there.  This works, but it's expensive.
+        // Probably better to try to do a binary search on stepsize.
+        if (nextxp2[0][2] * x[2] < 0.0)
+        {
+            error += abs(nextxp2[0][2] - x[2]) * u_tolerance * 50.0;
+        }
+        */
+
+        ratio = u_tolerance / error;
+        // Sometimes error can be exactly 0.0 just due to luck, in which case ratio will diverge.
+        // Other times, the tolerance might be 0.0 (e.g. if we're resetting it in the GUI).
+        if (isinf(ratio) || isnan(ratio))
+        {
+            ratio = 20.0;
+        }
+
+        // The min and max in the clamp are guarding against stepsize changes that are too large and cause issues.
+        // At most, 1/5x or 5x the stepsize between steps.  If the geodesics were less smooth, we might have to
+        // choose numbers that are closer to 1.0.
+        // 0.9 is also a safety term here to prevent needing to recalculate steps too often since we should be
+        // spending most of our time with error very near tolerance.
+
+        if (error <= u_tolerance)
+        {
+            // Successful step.
+            // Check here if nextxp2[0][2] and x[2] have different signs.  If so, then this step will cross the
+            // xz-plane.  Binary search on stepsize to get within some threshold of the xz-plane.  BUT save off
+            // the old stepsize and then keep that, but return the x,p points close to the disk.  After the binary
+            // search, make sure nextxp2[0][2] is still on the opposite side of the xz-plane as x[2].
+            // stepsize will be unaffected by the search.
+            if (nextxp2[0][2] * x[2] < 0.0)
+            {
+                if (abs(nextxp2[0][2]) > threshold)
+                {
+                    // Binary search on stepsize.
+                    // glsl doesn't support recursion, so we write a loop.
+                    leftEndpoint = 0;
+                    rightEndpoint = stepsize;
+                    for (int j = 0; j < BS_attempts; j++)
+                    {
+                        midpoint = (leftEndpoint + rightEndpoint) / 2.0;
+                        // Less accurate than RK4/5, but should still work.
+                        RK23integrationStep(xp, BSnextxp1, BSnextxp2, midpoint);
+                        //RK45integrationStep(xp, BSnextxp1, BSnextxp2, midpoint);
+                        if (BSnextxp2[0][2] * nextxp2[0][2] < 0.0)
+                        {
+                            // Then BSnextxp2[0][2] is on the wrong side of y=0 from nextxp2[0][2].
+                            leftEndpoint = midpoint;
+                        }
+                        else
+                        {
+                            if (abs(BSnextxp2[0][2]) < threshold)
+                            {
+                                // Then we're done-- copy into the matrices that will get outputted.
+                                nextxp2 = BSnextxp2;
+                                nextxp1 = BSnextxp1;
+                                break;
+                            }
+                            else
+                            {
+                                // Then the point is on the correct side, but too close to nextxp2[0][2].
+                                rightEndpoint = midpoint;
+                            }
+                        }
+                    }
+                }
+            }
+            stepsize *= clamp(0.9 * pow(ratio, 1.0 / 3.0), 0.2, 5.0);
+            break;
+        }
+
+        stepsize *= clamp(0.9 * pow(ratio, 1.0 / 3.0), 0.2, 5.0);
+    }
+
+    x = nextxp1[0];
+    p = nextxp1[1];
+}
+
 
 void RK4integrationStep(inout vec4 x, inout vec4 p, float dl)
 {
@@ -477,7 +655,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     else
     {
         bloomDiskMultiplier = 1.0;
-        bloomBackgroundMultiplier = 1.0;
+        bloomBackgroundMultiplier = 0.6;
     }
 
     vec3 dir;
@@ -487,25 +665,42 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     float intersectionParameter;
     vec4 planeIntersectionPoint;
     float horizon = u_BHMass + sqrt(u_BHMass*u_BHMass - u_a*u_a);
-    float stepSize = u_stepSize;
     bool hitSphere = false;
     bool hitInfinity = false;
+    mat2x4 diskIntersectionPoint;
     vec4 previousx;
+    vec4 previousp;
 
     dist = implicitr(x);
     // Cheap, dumb stepsize heuristic
-    stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
+    float stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
     for (int i = 0; i < u_maxSteps; i++)
     {
         previousx = x;
+        previousp = p;
 
-        adaptiveRKDriver(x, p, stepSize);
-        dist = implicitr(x);
-
-        //RK4integrationStep(x, p, stepSize);
-        //integrationStep(x, p, stepSize);
-        //dist = implicitr(x);
-        //stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
+        // TODO: Break this up into separate shaders to speed things up.  Just this switch statement loses 10-15% FPS.
+        switch (u_ODESolver)
+        {
+        case 0:
+            integrationStep(x, p, stepSize);
+            dist = implicitr(x);
+            stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
+            break;
+        case 1:
+            RK4integrationStep(x, p, stepSize);
+            dist = implicitr(x);
+            stepSize = 0.01 + (dist - horizon) * 1.0 / 5.0;
+            break;
+        case 2:
+            adaptiveRK23Driver(x, p, stepSize);
+            dist = implicitr(x);
+            break;
+        case 3:
+            adaptiveRK45Driver(x, p, stepSize);
+            dist = implicitr(x);
+            break;
+        }
 
         // Check if the ray hit the disk
         // Check to see whether the Cartesian y-coordinate changed signs, i.e. if the ray
@@ -549,7 +744,9 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
                 }
                 // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
                 vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
-                absorption = dot(brightnessMultiplier, diskSample) * u_diskAbsorption * (u_OuterRadius - dist);
+                // The brighter the disk is at the intersection point, the higher the absorption.
+                //absorption = dot(brightnessMultiplier, diskSample) * u_diskAbsorption * (u_OuterRadius - dist);
+                absorption = u_diskAbsorption * (u_OuterRadius - dist);
                 T *= exp(-absorption);
             }
         }

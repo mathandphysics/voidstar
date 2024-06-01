@@ -34,10 +34,10 @@ BlackHole::~BlackHole()
 void BlackHole::OnUpdate()
 {
     float deltaTime = Application::Get().GetTimer().GetDeltaTime();
-    if (m_rotateDisk)
-    {
-        m_diskRotationAngle -= deltaTime * m_diskRotationSpeed;
-    }
+    m_diskRotationAngle -= deltaTime * m_diskRotationSpeed;
+
+    // Set the new draw distance based on camera position.
+    m_drawDistance = CalculateDrawDistance();
 }
 
 void BlackHole::Draw()
@@ -201,6 +201,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_stepSize", m_stepSize);
     shader->SetUniform1f("u_drawDistance", m_drawDistance);
     shader->SetUniform1f("u_epsilon", m_epsilon);
+    shader->SetUniform1i("u_ODESolver", m_ODESolverSelector);
     shader->SetUniform1f("u_tolerance", m_tolerance);
 
     shader->SetUniform1i("diskTexture", m_diskTextureSlot);
@@ -322,6 +323,36 @@ void BlackHole::PostProcess()
     }
 }
 
+float BlackHole::CalculateDrawDistance()
+{
+    // Update the max distance to draw from the origin based on the camera's current coordinates
+    // depending on the current metric.
+
+    glm::vec3 p = Application::Get().GetCamera().GetPosition();
+    switch (m_shaderSelector)
+    {
+    case 0:
+    {
+        // Kerr black hole.
+        // r is the "distance" in the Kerr-Schild coordinates.
+        float b = m_a * m_a - glm::dot(p, p);
+        float c = -m_a * m_a * p.y * p.y;
+        float r2 = 0.5f * (-b + sqrt(b * b - 4.0f * c));
+        float r = sqrt(r2);
+        return fmax(70.0f, r + 10.0f);
+        break;
+    }
+
+    // TODO: Figure out cases for classical BH and Minkowski.  Probably need to implement ODE solvers for those first.
+
+    default:
+        // Flat space.
+        //return fmax(70.0, sqrt(glm::dot(p, p)));
+        return m_drawDistance;
+        break;
+    }
+}
+
 float BlackHole::CalculateISCO(float m, float a)
 {
     // Calculate in the innermost stable circular orbit for a black hole with parameters mass m and rotation a.
@@ -368,15 +399,19 @@ void BlackHole::OnImGuiRender()
             ImGui::Separator();
             ImGui::Separator();
 
+            ImGuiChooseBH();
+            ImGui::Separator();
+            ImGui::Separator();
+
             ImGuiBHProperties();
             ImGui::Separator();
             ImGui::Separator();
 
+            ImGuiChooseODESolver();
+            ImGui::Separator();
+            ImGui::Separator();
+
             ImGuiSimQuality();
-            ImGui::Separator();
-            ImGui::Separator();
-            
-            ImGuiChooseBH();
             ImGui::Separator();
             ImGui::Separator();
 
@@ -426,6 +461,42 @@ void BlackHole::ImGuiRenderStats()
     ImGui::SliderInt("##MSAA", &m_msaa, 1, 4, "MSAA = %d");
 }
 
+void BlackHole::ImGuiChooseBH()
+{
+    ImGui::Text("Black Hole Selector:");
+    if (ImGui::RadioButton("Kerr BH", &m_shaderSelector, 0))
+    {
+        m_useBloom = true;
+        m_selectedShaderString = m_kerrBlackHoleShaderPath;
+        m_maxSteps = 200;
+    }
+    ImGui::SameLine();
+    HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  The parameter \"a\" above is the spin parameter.  a=0 is a non-rotating black hole.");
+    if (ImGui::RadioButton("Classical BH (Fast)", &m_shaderSelector, 1))
+    {
+        m_useBloom = false;
+        m_selectedShaderString = m_gravitationalLensingShaderPath;
+        m_maxSteps = 2000;
+    }
+    ImGui::SameLine();
+    HelpMarker("Inaccurate, non-rotating black hole based on Newtonian Gravity.");
+    if (ImGui::RadioButton("Minkowski BH", &m_shaderSelector, 2))
+    {
+        m_useBloom = false;
+        m_selectedShaderString = m_flatSpacetimeShaderPath;
+        m_maxSteps = 200;
+    }
+    ImGui::SameLine();
+    HelpMarker("Minkowski metric of General Relativity.  Equivalent to (but slower than) Flat BH (Fast).");
+    if (ImGui::RadioButton("Flat BH (Fast)", &m_shaderSelector, 3))
+    {
+        m_useBloom = false;
+        m_selectedShaderString = m_flatShaderPath;
+    }
+    ImGui::SameLine();
+    HelpMarker("Typical ray tracer using straight line rays/intersections.");
+}
+
 void BlackHole::ImGuiBHProperties()
 {
     ImGui::Text("Black Hole Properties:");
@@ -435,7 +506,7 @@ void BlackHole::ImGuiBHProperties()
         "works on the Kerr black hole.  Larger a results in a more squished black hole.  It might also "
         "cause graphical artifacts to appear in the black hole's center.  If this happens, increase the "
         "simulation quality below.");
-    if (ImGui::SliderFloat("##BlackHoleMass", &m_mass, 0.0, 3.0, "Black Hole Mass = %.1f"))
+    if (ImGui::SliderFloat("##BlackHoleMass", &m_mass, 1.0, 3.0, "Black Hole Mass = %.1f"))
     {
         m_radius = 2.0f * m_mass;
         m_diskInnerRadius = 3.0f * m_radius;
@@ -447,40 +518,24 @@ void BlackHole::ImGuiBHProperties()
                 m_a = 0.0f;
             }
         }
-        float isco = CalculateISCO(m_mass, m_a);
-        m_diskInnerRadius = isco;
     }
     ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 1.5f * m_radius, 5.0f * m_radius, "Inner Disk Radius = %.1f");
-    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 10.0f * m_radius,
-        "Outer Disk Radius = %.1f");
-    if (ImGui::SliderFloat("##a", &m_a, 0.0f, m_mass - 0.05f, "a = %.2f"))
+    if (ImGui::Button("Set Inner Radius to ISCO"))
     {
         float isco = CalculateISCO(m_mass, m_a);
         m_diskInnerRadius = isco;
     }
-    ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 7.0f, "Disk Absorption = %.1f");
-    ImGui::Checkbox("Rotate Disk", &m_rotateDisk);
-    if (m_rotateDisk)
+    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 10.0f * m_radius,
+        "Outer Disk Radius = %.1f");
+    if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.02f, 0.99f), "a = %.2f"))
     {
-        ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, 0.0f, 0.3f, "Rotation Speed = %.3f");
     }
+    ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 7.0f, "Disk Absorption = %.1f");
+    ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, 0.0f, 0.3f, "Disk Rotation Speed = %.3f");
 }
 
-void BlackHole::ImGuiSimQuality()
+void BlackHole::ImGuiChooseODESolver()
 {
-    ImGui::Text("Simulation Quality:");
-    ImGui::SameLine();
-    HelpMarker("Making Step Size smaller will increase the accuracy of the simulation.  However, it "
-        "can also make the ring or black hole disappear.  If this happens, increase Max Steps to "
-        "make everything reappear with greater accuracy.  WARNING: this will significantly increase "
-        "computational cost and slow down the simulation.");
-    ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 0.5f, "Step Size = %.2f");
-    ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 10000, "Max Steps = %d", 0);
-    ImGui::Text("Tolerance:");
-    ImGui::SameLine();
-    HelpMarker("Test");
-    //ImGui::SliderFloat("##drawDistance", &m_drawDistance, 1.0f, 10000.0, "Max Distance = %.0f");
-    //ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
     ImGui::Text("ODE Solver:");
     if (ImGui::RadioButton("Forward-Euler-Cromer", &m_ODESolverSelector, 0))
     {
@@ -501,43 +556,32 @@ void BlackHole::ImGuiSimQuality()
     {
     }
     ImGui::SameLine();
-    HelpMarker("Dormand-Prince Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.");
-    if (m_ODESolverSelector == 2 || m_ODESolverSelector == 3)
-    {
-        ImGui::SliderFloat("##Tolerance", &m_tolerance, 0.00005f, 0.01f, "Tolerance = %.5f");
-    }
+    HelpMarker("Dormand-Prince Method.  Use the tolerance slider to choose a trade-off between speed and accuracy."
+                "  Note that because of its high accuracy, this solver takes very large steps.  This can cause issues with "
+                "detecting that the rays hit the accretion disk.  As a result, the inner edge of the disk may look "
+                "fuzzy.");
 }
 
-void BlackHole::ImGuiChooseBH()
+void BlackHole::ImGuiSimQuality()
 {
-    ImGui::Text("Black Hole Selector:");
-    if (ImGui::RadioButton("Kerr BH", &m_shaderSelector, 0))
-    {
-        m_selectedShaderString = m_kerrBlackHoleShaderPath;
-        m_maxSteps = 200;
-    }
+    ImGui::Text("Simulation Quality:");
     ImGui::SameLine();
-    HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  The parameter \"a\" above is the spin parameter.  a=0 is a non-rotating black hole.");
-    if (ImGui::RadioButton("Classical BH (Fast)", &m_shaderSelector, 1))
+    HelpMarker("Making Step Size smaller will increase the accuracy of the simulation.  However, it "
+        "can also make the ring or black hole disappear.  If this happens, increase Max Steps to "
+        "make everything reappear with greater accuracy.  WARNING: this will significantly increase "
+        "computational cost and slow down the simulation.");
+    ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 1000, "Max Steps = %d", 0);
+    //ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 0.5f, "Step Size = %.2f");
+    ImGui::SliderFloat("##drawDistance", &m_drawDistance, 1.0f, 1000.0, "Max Distance = %.0f");
+    //ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
+    if (m_ODESolverSelector == 2 || m_ODESolverSelector == 3)
     {
-        m_selectedShaderString = m_gravitationalLensingShaderPath;
-        m_maxSteps = 2000;
+        ImGui::Text("Tolerance:");
+        ImGui::SameLine();
+        HelpMarker("Tolerance is the maximum allowed local error in the integration step.  A smaller tolerance leads to"
+        " a more accurate simulation.");
+        ImGui::SliderFloat("##Tolerance", &m_tolerance, 0.00005f, 0.01f, "Tolerance = %.5f");
     }
-    ImGui::SameLine();
-    HelpMarker("Inaccurate, non-rotating black hole based on Newtonian Gravity.");
-    if (ImGui::RadioButton("Minkowski BH", &m_shaderSelector, 2))
-    {
-        m_selectedShaderString = m_flatSpacetimeShaderPath;
-        m_maxSteps = 200;
-    }
-    ImGui::SameLine();
-    HelpMarker("Minkowski metric of General Relativity.  Equivalent to (but slower than) Flat BH (Fast).");
-    if (ImGui::RadioButton("Flat BH (Fast)", &m_shaderSelector, 3))
-    {
-        m_selectedShaderString = m_flatShaderPath;
-    }
-    ImGui::SameLine();
-    HelpMarker("Typical ray tracer using straight line rays/intersections.");
 }
 
 void BlackHole::ImGuiDebug()

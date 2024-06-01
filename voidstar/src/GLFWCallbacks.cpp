@@ -78,7 +78,7 @@ void Screenshot()
 	std::strftime(std::data(timeString), std::size(timeString), "%Y%m%d%H%M%S", &calendar);
 	timeString[14] = '\0';  // Guarantee timeString is null terminated for the string constructor.
 	std::string outFileName = timeString;
-	outFileName = "\nScreenshot_" + outFileName + ".png";
+	outFileName = "Screenshot_" + outFileName + ".png";
 #ifndef NDEBUG
 	std::cout << outFileName << '\n';
 #endif

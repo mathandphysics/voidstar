@@ -80,6 +80,10 @@ layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec4 brightColour;
 
 
+/////////////////////////////////////////////////////
+////////////////////   COMMON   /////////////////////
+/////////////////////////////////////////////////////
+
 mat4 diag(vec4 v)
 {
     return mat4(v.x, 0.0, 0.0, 0.0,
@@ -87,6 +91,144 @@ mat4 diag(vec4 v)
                 0.0, 0.0, v.z, 0.0,
                 0.0, 0.0, 0.0, v.w);
 }
+
+float map(float val, float min1, float max1, float min2, float max2)
+{
+    float percent = (val - min1) / (max1 - min1);
+    return percent * (max2 - min2) + min2;
+}
+
+
+/////////////////////////////////////////////////////
+/////////////////////   NOISE   /////////////////////
+/////////////////////////////////////////////////////
+
+vec3 mod289(vec3 x)
+// From Stefan Gustavson: https://stegu.github.io/webgl-noise/
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 mod289(vec4 x)
+// From Stefan Gustavson: https://stegu.github.io/webgl-noise/
+{
+    return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 permute(vec4 x)
+// From Stefan Gustavson: https://stegu.github.io/webgl-noise/
+{
+    return mod289(((x * 34.0) + 10.0) * x);
+}
+
+vec4 taylorInvSqrt(vec4 r)
+// From Stefan Gustavson: https://stegu.github.io/webgl-noise/
+// A 1-degree Taylor expansion of 1/sqrt(r) at r=0.7.
+{
+    return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+vec3 fade(vec3 t)
+// From Ken Perlin or earlier
+{
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+float noise(vec3 P)
+// Classic Perlin noise created by Ken Perlin.
+// Implementation by Stefan Gustavson: https://stegu.github.io/webgl-noise/
+{
+    vec3 Pi0 = floor(P); // Integer part for indexing
+    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1
+    Pi0 = mod289(Pi0);
+    Pi1 = mod289(Pi1);
+    vec3 Pf0 = fract(P); // Fractional part for interpolation
+    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0
+    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+    vec4 iy = vec4(Pi0.yy, Pi1.yy);
+    vec4 iz0 = Pi0.zzzz;
+    vec4 iz1 = Pi1.zzzz;
+
+    vec4 ixy = permute(permute(ix) + iy);
+    vec4 ixy0 = permute(ixy + iz0);
+    vec4 ixy1 = permute(ixy + iz1);
+
+    vec4 gx0 = ixy0 * (1.0 / 7.0);
+    vec4 gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
+    gx0 = fract(gx0);
+    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+    vec4 sz0 = step(gz0, vec4(0.0));
+    gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+    gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+    vec4 gx1 = ixy1 * (1.0 / 7.0);
+    vec4 gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;
+    gx1 = fract(gx1);
+    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+    vec4 sz1 = step(gz1, vec4(0.0));
+    gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+    gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+    vec3 g000 = vec3(gx0.x, gy0.x, gz0.x);
+    vec3 g100 = vec3(gx0.y, gy0.y, gz0.y);
+    vec3 g010 = vec3(gx0.z, gy0.z, gz0.z);
+    vec3 g110 = vec3(gx0.w, gy0.w, gz0.w);
+    vec3 g001 = vec3(gx1.x, gy1.x, gz1.x);
+    vec3 g101 = vec3(gx1.y, gy1.y, gz1.y);
+    vec3 g011 = vec3(gx1.z, gy1.z, gz1.z);
+    vec3 g111 = vec3(gx1.w, gy1.w, gz1.w);
+
+    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+    g000 *= norm0.x;
+    g010 *= norm0.y;
+    g100 *= norm0.z;
+    g110 *= norm0.w;
+    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+    g001 *= norm1.x;
+    g011 *= norm1.y;
+    g101 *= norm1.z;
+    g111 *= norm1.w;
+
+    float n000 = dot(g000, Pf0);
+    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+    float n111 = dot(g111, Pf1);
+
+    vec3 fade_xyz = fade(Pf0);
+    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+    return 2.2 * n_xyz;
+}
+
+float multifractal_noise(vec3 xyz, int octaves, float scale, float lacunarity, float dimension)
+{
+    // Multifractal noise with multiplied fractals rather than added.
+    // My attempt to emulate Blender's 3D multifractal noise shader.
+    float val = 1.0;
+    float amplitude = 1.0;
+    //float amplitude = scale;
+    float gain = pow(lacunarity, -dimension);
+    float frequency = 1.0;
+
+    for (int i = 0; i < octaves; i++)
+    {
+        val *= amplitude * noise(frequency * xyz) + 1.0;
+        amplitude *= gain;
+        frequency *= lacunarity;
+    }
+    return val;
+
+}
+
+
+/////////////////////////////////////////////////////
+//////////////   GENERAL RELATIVITY   ///////////////
+/////////////////////////////////////////////////////
 
 #ifdef KERR
 float implicitr(vec4 x)
@@ -128,7 +270,7 @@ mat4 invmetric(vec4 x)
 
     // Calculate the inverse Kerr metric in ingoing Kerr-Schild coordinates at the position x.  G = c = 1. Signature (-+++).
     // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
-    // Due to the convenient nature of these coordinates, this has pretty much identical computational cost as
+    // Due to the convenient decomposition of these coordinates, this has pretty much identical computational cost as
     // the metric.
     vec3 p = x.yzw;
     float r = implicitr(x);
@@ -142,7 +284,6 @@ mat4 invmetric(vec4 x)
 
 float metricDistance(vec4 x)
 {
-    // Not really a distance in spacetime.
 #ifdef KERR
     return implicitr(x);
 #endif
@@ -367,6 +508,11 @@ mat2x4 fasterxpupdateImplicitEuler(in mat2x4 xp, float dl)
     return dxp;
 }
 
+
+/////////////////////////////////////////////////////
+/////////   DIFFERENTIAL EQUATION SOLVING   /////////
+/////////////////////////////////////////////////////
+
 #if (ODE_SOLVER == 0)
 mat2x4 integrationStep(mat2x4 xp, float dl)
 {
@@ -452,6 +598,97 @@ void RK45integrationStep(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, 
     k7 = fasterxpupdate(nextxp1, stepsize);
     nextxp2 = xp + (5179.0/57600.0)*k1 + (0.0)*k2 + (7571.0/16695.0)*k3 + (393.0/640.0)*k4 + (-92097.0/339200.0)*k5 + (187.0/2100.0)*k6 + (1.0/40.0)*k7;
 }
+
+#if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
+mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize)
+{
+    // oldStepSize is the size of the step that is actually used in the integration step.  stepsize is then updated
+    // for the next step based on the error.
+    mat2x4 nextxp1;
+    mat2x4 nextxp2;
+    mat2x4 errormat;
+    float error;
+    float stepSizeRatio;
+    float ratio;
+
+    // The min and max in the clamp are guarding against stepsize changes that are too large and cause issues.
+    // At most, 1/5x or 2x the stepsize between steps.  If the geodesics were less smooth, we might have to
+    // choose numbers that are closer to 1.0 (1/2x and 2x are popular numbers).
+    // 0.9 is also a safety term here to prevent needing to recalculate steps too often since we should be
+    // spending most of our time with error very near tolerance.
+    float safety = 0.9;
+    float minstep = 0.2;
+    float maxstep = 2.0;
+
+    float power;
+#if (ODE_SOLVER == 2)
+    power = 1.0 / 3.0;
+#elif (ODE_SOLVER == 3)
+    power = 1.0 / 5.0;
+#endif
+
+    // Rather than running a while loop, which can crash the program in rare edge cases, we attempt to find
+    // a stepsize that produces an acceptable error size in at most max_attempts.
+    int max_attempts = 10;
+    for (int i = 0; i < max_attempts; i++)
+    {
+
+        // HACK.  The adaptive driver steps too far for flat or close to flat spacetimes.  This causes it to miss
+        // crossing the disk or the sphere.
+#ifdef CLASSICAL
+        stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
+#endif
+#ifdef MINKOWSKI
+        stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
+#endif
+
+        // TODO: Reduce this to one fewer xpupdate calls using the First Same As Last (FSAL) property.
+#if (ODE_SOLVER == 2)
+        RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
+#elif (ODE_SOLVER == 3)
+        RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
+#endif
+
+        // Now adapt stepsize:
+        // https://en.wikipedia.org/wiki/Adaptive_step_size
+        // https://jonshiach.github.io/ODEs-book/pages/2.5_Adaptive_step_size_control.html
+        // Calculate the error
+        errormat = nextxp1 - nextxp2;
+        // L2-norm error
+        error = sqrt(dot(errormat[0], errormat[0]) + dot(errormat[1], errormat[1]));
+        // L1-norm error
+        //error = abs(errormat[0][0]) + abs(errormat[0][1]) + abs(errormat[0][2]) + abs(errormat[0][3])
+        //    + abs(errormat[1][0]) + abs(errormat[1][1]) + abs(errormat[1][2]) + abs(errormat[1][3]);
+
+        ratio = u_tolerance / error;
+        stepSizeRatio = clamp(safety * pow(ratio, power), minstep, maxstep);
+
+        if (error <= u_tolerance)
+        {
+            // Successful step.
+            if (stepSizeRatio > 0.5)
+            {
+                oldStepSize = stepsize;
+                stepsize *= stepSizeRatio;
+                break;
+            }
+        }
+
+        stepsize *= stepSizeRatio;
+    }
+
+#if (ODE_SOLVER == 2)
+    return nextxp1;
+#elif (ODE_SOLVER == 3)
+    return nextxp2;
+#endif
+}
+#endif
+
+
+/////////////////////////////////////////////////////
+//////////////   INTERSECTION POINTS   //////////////
+/////////////////////////////////////////////////////
 
 void BSDiskIntersectionPoint(mat2x4 previousxp, mat2x4 xp, out mat2x4 diskIntersectionPoint, float stepsize)
 {
@@ -561,91 +798,10 @@ void BSSphereIntersectionPoint(mat2x4 xp, out mat2x4 sphereIntersectionPoint, fl
     sphereIntersectionPoint = xptest;
 }
 
-#if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
-mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize)
-{
-    // oldStepSize is the size of the step that is actually used in the integration step.  stepsize is then updated
-    // for the next step based on the error.
-    mat2x4 nextxp1;
-    mat2x4 nextxp2;
-    mat2x4 errormat;
-    float error;
-    float stepSizeRatio;
-    float ratio;
 
-    // The min and max in the clamp are guarding against stepsize changes that are too large and cause issues.
-    // At most, 1/5x or 2x the stepsize between steps.  If the geodesics were less smooth, we might have to
-    // choose numbers that are closer to 1.0 (1/2x and 2x are popular numbers).
-    // 0.9 is also a safety term here to prevent needing to recalculate steps too often since we should be
-    // spending most of our time with error very near tolerance.
-    float safety = 0.9;
-    float minstep = 0.2;
-    float maxstep = 2.0;
-
-    float power;
-#if (ODE_SOLVER == 2)
-    power = 1.0 / 3.0;
-#elif (ODE_SOLVER == 3)
-    power = 1.0 / 5.0;
-#endif
-
-    // Rather than running a while loop, which can crash the program in rare edge cases, we attempt to find
-    // a stepsize that produces an acceptable error size in at most max_attempts.
-    int max_attempts = 10;
-    for (int i = 0; i < max_attempts; i++)
-    {
-
-        // HACK.  The adaptive driver steps too far for flat or close to flat spacetimes.  This causes it to miss
-        // crossing the disk or the sphere.
-#ifdef CLASSICAL
-        stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
-#endif
-#ifdef MINKOWSKI
-        stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
-#endif
-
-        // TODO: Reduce this to one fewer xpupdate calls using the First Same As Last (FSAL) property.
-#if (ODE_SOLVER == 2)
-        RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
-#elif (ODE_SOLVER == 3)
-        RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
-#endif
-
-        // Now adapt stepsize:
-        // https://en.wikipedia.org/wiki/Adaptive_step_size
-        // https://jonshiach.github.io/ODEs-book/pages/2.5_Adaptive_step_size_control.html
-        // Calculate the error
-        errormat = nextxp1 - nextxp2;
-        // L2-norm error
-        error = sqrt(dot(errormat[0], errormat[0]) + dot(errormat[1], errormat[1]));
-        // L1-norm error
-        //error = abs(errormat[0][0]) + abs(errormat[0][1]) + abs(errormat[0][2]) + abs(errormat[0][3])
-        //    + abs(errormat[1][0]) + abs(errormat[1][1]) + abs(errormat[1][2]) + abs(errormat[1][3]);
-
-        ratio = u_tolerance / error;
-        stepSizeRatio = clamp(safety * pow(ratio, power), minstep, maxstep);
-
-        if (error <= u_tolerance)
-        {
-            // Successful step.
-            if (stepSizeRatio > 0.5)
-            {
-                oldStepSize = stepsize;
-                stepsize *= stepSizeRatio;
-                break;
-            }
-        }
-
-        stepsize *= stepSizeRatio;
-    }
-
-#if (ODE_SOLVER == 2)
-    return nextxp1;
-#elif (ODE_SOLVER == 3)
-    return nextxp2;
-#endif
-}
-#endif
+/////////////////////////////////////////////////////
+////////////////   SPHERE SHADING   /////////////////
+/////////////////////////////////////////////////////
 
 vec3 getSphereColour(vec3 p)
 {
@@ -675,6 +831,11 @@ vec3 getSphereColour(vec3 p)
     return col;
 }
 
+
+/////////////////////////////////////////////////////
+/////////////////   DISK SHADING   //////////////////
+/////////////////////////////////////////////////////
+
 vec3 sampleDiskTexture(vec3 p)
 {
     float pi = 3.14159265359;
@@ -702,9 +863,31 @@ vec3 sampleDiskTexture(vec3 p)
     }
     else
     {
-        vec2 uv = vec2(u, v);
-        float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
-        col = texture(diskTexture, uv).xyz * radialDimming;
+        //vec2 uv = vec2(u, v);
+        //float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
+        //col = texture(diskTexture, uv).xyz * radialDimming;
+
+        // Use noise for sample
+        float r = length(p.xz);
+        float phi = atan(p.z, p.x);
+        float theta = atan(r, p.y);
+        float rotational_smear = -1.2;
+        float power = pow(theta, rotational_smear);
+        float rho = length(p);
+        float rhohalf = sqrt(rho);
+        float spiral_factor = 5.0;
+        float spiral = map(rhohalf, 0.0, 5.0, 0.0, spiral_factor);
+        phi += spiral + u_diskRotationAngle;
+        vec3 xyz = vec3(r * sin(power) * cos(phi), r * sin(power) * sin(phi), r * cos(power));
+        int octaves = 3;
+        float lacunarity = 2.0;
+        float dimension = 0.12;
+        float amplitude = 0.6;
+        float n = multifractal_noise(xyz, octaves, amplitude, lacunarity, dimension);
+        //float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
+        float radialDimming = clamp(100.0 * pow(rho, -2.5), 0.0, 1.0);
+        //col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n);
+        col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n) * radialDimming;
     }
     return col;
 }
@@ -782,7 +965,7 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
         // Velocity (in Kerr-Schild cartesian coordinates) of a massive particle in circular orbit in the equatorial plane
         // at a distance r from a black hole with mass u_BHMass and spin a.
         // The minus sign in front of the time term is just to make the later dot product work out.  The ray of light
-        // is moving toward the disk because we're tracing backwards, so we need to swap the sign on time on either
+        // is moving toward the disk because we're tracing backwards, so we need to swap the sign on either
         // the light momentum or the disk velocity, so we just do it here for simplicity.
         vec4 diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
 #ifdef CLASSICAL
@@ -798,7 +981,7 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
 #endif
         // 5000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
         // in a steady disk.
-         brightnessFromRadius = 5000.0 * f(r, a) / r;
+        brightnessFromRadius = 5000.0 * f(r, a) / r;
         //rayCol += T * diskSample * TemperatureToRGB(temperature) * brightnessFromVel * brightnessFromRadius * bloomDiskMultiplier;
         rayCol += T * diskSample * TemperatureToRGB(temperature) * brightnessFromVel * bloomDiskMultiplier;
     }
@@ -817,6 +1000,11 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
         T *= exp(-absorption);
     }
 }
+
+
+/////////////////////////////////////////////////////
+/////////////////   RAY MARCHING   //////////////////
+/////////////////////////////////////////////////////
 
 void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk)
 {
@@ -952,6 +1140,10 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     }
 }
 
+
+/////////////////////////////////////////////////////
+/////////////////////   MAIN   //////////////////////
+/////////////////////////////////////////////////////
 
 void main()
 {

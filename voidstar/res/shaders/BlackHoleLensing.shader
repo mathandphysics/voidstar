@@ -1,5 +1,5 @@
 #shader vertex
-#version 430 core
+#version 460 core
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 tcs;
 
@@ -12,7 +12,7 @@ void main()
 }
 
 #shader fragment
-#version 430 core
+#version 460 core
 out vec4 colour;
 
 in vec2 TexCoords;
@@ -155,7 +155,7 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
     float invMass = 1.0 / u_BHMass;
     float BHDistSquared;
     float BHDist;
-    float bendingAcceleration;
+    vec3 bendingAcceleration;
 
     for (int i = 0; i < maxSteps; i++)
     {
@@ -193,6 +193,7 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
         curvedSpaceStepsize = BHDistSquared * invMass;
         // The constant out front is just to help with accuracy and numerical stability, but it comes at
         // the cost of more work for the GPU.  Smaller values give better accuracy and stability.
+        //stepsize = 0.5 * min(rayMarchStepsize, curvedSpaceStepsize);
         stepsize = 0.5 * min(rayMarchStepsize, curvedSpaceStepsize);
 
         // Technically, this takes account not only the curvature of time (as in Newtonian gravity), but also
@@ -201,8 +202,8 @@ vec3 rayMarch(vec4 sphere, vec2 disk, vec3 cameraPos, vec3 rayDir)
         // we simply account for this with a factor of 2.0.  For strictly Newtonian gravity, use 1.0, but then the
         // photon rings will no longer be visible, e.g.  Technically speaking, the 2.0 is the result of the static weak-field
         // limit of the Schwarzchild metric.  It is the classical Newtonian limit where we take 2*G*M/(c^2*r) << 1.
-        bendingAcceleration = 2.0 * u_BHMass / (BHDistSquared * BHDist);
-        rayDir = normalize(rayDir - stepsize * bendingAcceleration * p);
+        bendingAcceleration = -2.0 * (u_BHMass/BHDistSquared) * (p/BHDist);
+        rayDir = normalize(rayDir + stepsize * bendingAcceleration);
         p += rayDir * stepsize;
     }
 

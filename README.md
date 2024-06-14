@@ -2,14 +2,14 @@
 ## A Real-Time Black Hole Ray Tracer
 
 <p><code>void*</code> is a real-time black hole ray tracer written in C++ with OpenGL.
-Fly around and observe a black hole with accretion disk against the optional backdrop of
+Fly around and observe a spinning black hole with accretion disk against the optional backdrop of
 the Milky Way galaxy.</p>
 
 ![Cinematic](voidstar/docs/images/cinematic.jpeg)
 
 ### About
 
-<p><code>void*</code> ray marches along geodesics by using Hamilton's equations applied 
+<p><code>void*</code> ray marches along light-like geodesics by using Hamilton's equations applied 
 to General Relativity.  Namely, the Hamiltonian is given by</p>
 
 $$H(x^{\alpha}, p_{\beta}) = \frac{1}{2}g^{\mu \nu}(x^{\alpha})p_{\mu}p_{\nu}$$
@@ -25,14 +25,13 @@ $$
 $$
 
 <p>where $\lambda$ parametrizes the geodesic.  These equations are solved numerically.
-The integration method is generic and can support any metric tensor, but only the Kerr
+The integration method is generic and can support any metric tensor.  The Kerr
 and Minkowski metrics are currently included.</p>
 
-<p>A "cinematic mode" is included with basic lighting adjustments to create neat images.
+<p>A "cinematic mode" is included with lighting options to create neat images.
 Additionally, <code>void*</code> can draw debug colouring on both the accretion disk and
 sphere in order to better make sense of what you're looking at.  By default, the top of
-the accretion disk and bottom of the accretion disk are coloured differently with this 
-debug colouring.</p>
+the accretion disk and bottom of the accretion disk are coloured differently.</p>
 
 ### Other Screenshots
 
@@ -66,15 +65,15 @@ Mouse Scroll : Change Movement Speed
 
 Use vcpkg to install the following:
 
-`vcpkg install glfw3:x64-windows glfw3:x64-windows-static`
+`vcpkg install glfw3:x64-windows-static`
 
-`vcpkg install imgui[core,opengl3-binding,glfw-binding,docking-experimental]:x64-windows imgui[core,opengl3-binding,glfw-binding,docking-experimental]:x64-windows-static`
+`vcpkg install imgui[core,opengl3-binding,glfw-binding,docking-experimental]:x64-windows-static`
 
-`vcpkg install glm:x64-windows glm:x64-windows-static`
+`vcpkg install glm:x64-windows-static`
 
-`vcpkg install glad[gl-api-46,loader]:x64-windows glad[gl-api-46,loader]:x64-windows-static`
+`vcpkg install glad[gl-api-46,loader]:x64-windows-static`
 
-`vcpkg install stb:x64-windows stb:x64-windows-static`
+`vcpkg install stb:x64-windows-static`
 
 And make sure you've already used `vcpkg integrate install` so that Visual Studio can immediately use the installed packages.
 
@@ -82,6 +81,8 @@ Then just open the solution file in Visual Studio and compile.
 
 
 ### Credits, Inspirations, and References
+
+- This project was conceived of after Stephen Hawking died when I began writing the underlying 3D renderer specifically for a black hole project.  I was then further inspired by the first photo of a black hole published by the Event Horizon Telescope Collaboration.  I finally got around to seeing the movie Interstellar in 2023 and was motivated to publish this project to github.
 
 - The skybox image of the Milky Way galaxy is thanks to the [European Space Agency](https://sci.esa.int/web/gaia/-/the-colour-of-the-sky-from-gaia-s-early-data-release-3-equirectangular-projection)
 

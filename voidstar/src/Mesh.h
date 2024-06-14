@@ -42,9 +42,11 @@ public:
 
 	void Initialize(const float* vertData, unsigned int numVerts, VertexBufferLayout layout,
 		const unsigned int* indexBuffer, unsigned int numIndices, const std::string& shaderPath,
-		const std::string& texturePath = "", bool flip = true);
+		const std::string& texturePath = "", bool flip = true,
+		const std::vector<std::string>&vertexDefines = {}, const std::vector<std::string>&fragmentDefines = {});
 	void SetTexture(const std::string& path, bool flip);
 	void SetShader(const std::string& path);
+	void SetShader(const std::string& path, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines);
 	void SetPosition(glm::vec3 position);
 	void SetRotation(glm::mat4 rotation);
 	void SetProjection(glm::mat4 proj, bool useOrtho = false);

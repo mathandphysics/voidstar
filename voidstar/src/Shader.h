@@ -14,13 +14,14 @@ struct ShaderProgramSource
 class Shader
 {
 private:
-	std::string m_FilePath;
-	unsigned int m_RendererID;
+	std::string m_FilePath = "";
+	unsigned int m_RendererID = 0;
 	std::unordered_map<std::string, int> m_UniformLocationCache;
 
 public:
 	Shader();
 	Shader(const std::string& filepath);
+	Shader(const std::string& filepath, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines);
 	~Shader();
 
 	void Bind() const;
@@ -36,6 +37,7 @@ public:
 
 private:
 	ShaderProgramSource ParseShader(const std::string& filepath);
+	void InsertDefines(std::string& shadersource, const std::vector<std::string>& defines);
 	unsigned int CompileShader(const std::string& source, unsigned int type);
 	unsigned int CreateShaderProgram(const std::string& vertexShader, const std::string& fragmentShader);
 	int GetUniformLocation(const std::string& name);

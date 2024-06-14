@@ -146,6 +146,26 @@ void Renderer::Shutdown()
 }
 
 
+std::string Renderer::GetShaderPath(const std::string& filePath, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines)
+{
+    std::string filePathwithDefines = filePath;
+    for (auto str : vertexDefines)
+    {
+        if (!str.empty())
+        {
+            filePathwithDefines.append(str);
+        }
+    }
+    for (auto str : fragmentDefines)
+    {
+        if (!str.empty())
+        {
+            filePathwithDefines.append(str);
+        }
+    }
+    return filePathwithDefines;
+}
+
 std::shared_ptr<Shader> Renderer::GetShader(const std::string& filePath)
 {
     if (m_ShaderCache.find(filePath) != m_ShaderCache.end())
@@ -156,6 +176,21 @@ std::shared_ptr<Shader> Renderer::GetShader(const std::string& filePath)
     {
         m_ShaderCache[filePath] = std::make_shared<Shader>(filePath);
         return m_ShaderCache[filePath];
+    }
+}
+
+std::shared_ptr<Shader> Renderer::GetShader(const std::string& filePath, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines)
+{
+    std::string filePathwithDefines = GetShaderPath(filePath, vertexDefines, fragmentDefines);
+
+    if (m_ShaderCache.find(filePathwithDefines) != m_ShaderCache.end())
+    {
+        return m_ShaderCache[filePathwithDefines];
+    }
+    else
+    {
+        m_ShaderCache[filePathwithDefines] = std::make_shared<Shader>(filePath, vertexDefines, fragmentDefines);
+        return m_ShaderCache[filePathwithDefines];
     }
 }
 

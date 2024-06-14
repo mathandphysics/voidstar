@@ -55,7 +55,11 @@ public:
         return s_Renderer;
     }
 
+    std::string GetShaderPath(const std::string& filePath, const std::vector<std::string>& vertexDefines,
+        const std::vector<std::string>& fragmentDefines);
     std::shared_ptr<Shader> GetShader(const std::string& filePath);
+    std::shared_ptr<Shader> GetShader(const std::string& filePath, const std::vector<std::string>& vertexDefines,
+        const std::vector<std::string>& fragmentDefines);
     std::shared_ptr<Texture2D> GetTexture(const std::string& filePath, bool flip);
 
 private:

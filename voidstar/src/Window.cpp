@@ -53,9 +53,9 @@ GLFWwindow* Window::CreateWindow(bool fullscreen, bool vsync)
 #ifndef NDEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #endif
-    // GL 4.3 + GLSL 430
+    // GL 4.6 + GLSL 460
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_SAMPLES, 16);
 
     m_Monitor = glfwGetPrimaryMonitor();

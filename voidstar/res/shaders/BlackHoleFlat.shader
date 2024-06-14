@@ -1,5 +1,5 @@
 #shader vertex
-#version 430 core
+#version 460 core
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 tcs;
 
@@ -12,7 +12,7 @@ void main()
 }
 
 #shader fragment
-#version 430 core
+#version 460 core
 out vec4 colour;
 
 in vec2 TexCoords;

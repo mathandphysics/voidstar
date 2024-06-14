@@ -42,8 +42,9 @@ public:
 	void SetShaderUniforms();
 	void SetScreenShaderUniforms();
 
+	float CalculateKerrDistance(glm::vec3 p);
 	float CalculateDrawDistance();
-	float CalculateISCO(float m, float a);
+	void CalculateISCO();
 
 	void OnImGuiRender();
 	void ImGuiRenderStats();
@@ -56,13 +57,20 @@ public:
 
 	void OnResize();
 	void SetProjectionMatrix();
-	void SetGraphicsPreset(graphicsPreset preset);
+	void SetGraphicsPreset(const graphicsPreset &preset);
+	void SetShader(const std::string& filePath);
+	void SetShaderDefines();
+
 private:
 	float m_mass = 1.0f;
 	float m_radius = 2.0f * m_mass;
+	float m_risco;
+	float m_fOfRISCO;
 	float m_diskInnerRadius = 2.25f * m_radius;
 	float m_diskOuterRadius = 9.0f * m_radius;
 	float m_a = 0.6f;
+	float m_Tmax = 4500.0f;
+	bool m_insideHorizon = false;
 
 	float m_diskRotationSpeed = 0.1f;
 	float m_diskRotationAngle = 0.0f;
@@ -103,6 +111,8 @@ private:
 	std::string m_textureToScreenShaderPath = "res/shaders/TextureToScreen.shader";
 	int m_shaderSelector = 0;
 	std::string m_selectedShaderString = m_kerrBlackHoleShaderPath;
+	std::vector<std::string> m_vertexDefines = {};
+	std::vector<std::string> m_fragmentDefines = {};
 
 	Mesh m_quad;
 	std::shared_ptr<Framebuffer> m_fbo;
@@ -117,6 +127,8 @@ private:
 	float m_drawDistance = 100.0f;
 	float m_epsilon = 0.0001f;
 	float m_tolerance = 0.01f;
+	float m_diskIntersectionThreshold = 0.001f;
+	float m_sphereIntersectionThreshold = 0.001f;
 	int m_ODESolverSelector = 2;
 
 	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.1, 0.8, 0.2);

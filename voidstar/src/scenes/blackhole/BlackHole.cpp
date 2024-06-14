@@ -13,16 +13,18 @@ graphicsPreset celshadePreset = { 2.0f, 0.1f, 10.0f, 1.40f, 0.10f, 0.0f, 3.0f, 3
 
 BlackHole::BlackHole()
 {
+    CalculateISCO();
     CreateScreenQuad();
-
-    // y=1 puts the camera slightly above the xz-plane of the accretion disk.
-    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -26.0f));
-    SetProjectionMatrix();
 
     LoadTextures();
     CompileBHShaders();
     CreateFBOs();
     CompilePostShaders();
+
+    // y=1 puts the camera slightly above the xz-plane of the accretion disk.
+    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -26.0f));
+    //Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 0.0f, 0.4f));
+    SetProjectionMatrix();
 
     SetGraphicsPreset(interstellarPreset);
 }
@@ -36,7 +38,7 @@ void BlackHole::OnUpdate()
     float deltaTime = Application::Get().GetTimer().GetDeltaTime();
     m_diskRotationAngle -= deltaTime * m_diskRotationSpeed;
 
-    // Set the new draw distance based on camera position.
+    // Set the new draw distance based on camera position.  Also determines whether the camera is inside the event horizon.
     m_drawDistance = CalculateDrawDistance();
 }
 
@@ -44,7 +46,7 @@ void BlackHole::Draw()
 {
     // Draw to initial off-screen FBO
     m_fbo->Bind();
-    m_quad.SetShader(m_selectedShaderString);
+    m_quad.SetShader(m_selectedShaderString, m_vertexDefines, m_fragmentDefines);
     SetShaderUniforms();
     m_quad.Draw();
     m_fbo->Unbind();
@@ -87,7 +89,9 @@ void BlackHole::CreateScreenQuad()
     VertexBufferLayout layout;
     layout.Push<float>(3);
     layout.Push<float>(2);
-    m_quad.Initialize((const float*)&positions[0], 4, layout, triangles, 6, m_selectedShaderString);
+    SetShaderDefines();
+    m_quad.Initialize((const float*)&positions[0], 4, layout, triangles, 6, m_selectedShaderString, 
+        "", true, m_vertexDefines, m_fragmentDefines);
     //m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(60.0f) / 2.0f)));
     m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(m_FOVy) / 2.0f)));
     m_quad.SetProjection(m_proj, false);
@@ -120,21 +124,8 @@ void BlackHole::LoadTextures()
 void BlackHole::CompileBHShaders()
 {
     // Load and compile the black hole shaders and set uniforms.
-    std::shared_ptr<Shader> kerr_shader = Renderer::Get().GetShader(m_kerrBlackHoleShaderPath);
-    kerr_shader->Bind();
-    SetShaderUniforms();
-
-    std::shared_ptr<Shader> relativistic_shader = Renderer::Get().GetShader(m_gravitationalLensingShaderPath);
-    relativistic_shader->Bind();
-    SetShaderUniforms();
-
-    std::shared_ptr<Shader> nonrelativistic_shader = Renderer::Get().GetShader(m_flatShaderPath);
-    nonrelativistic_shader->Bind();
-    SetShaderUniforms();
-
-    std::shared_ptr<Shader> flatspace_shader = Renderer::Get().GetShader(m_flatSpacetimeShaderPath);
-    flatspace_shader->Bind();
-    SetShaderUniforms();
+    SetShaderDefines();
+    SetShader(m_kerrBlackHoleShaderPath);
 }
 
 void BlackHole::CompilePostShaders()
@@ -191,8 +182,11 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_InnerRadius", m_diskInnerRadius);
     shader->SetUniform1f("u_OuterRadius", m_diskOuterRadius);
     shader->SetUniform1f("u_BHRadius", m_radius);
+    shader->SetUniform1f("u_risco", m_risco);
+    shader->SetUniform1f("u_fOfRISCO", m_fOfRISCO);
     shader->SetUniform1f("u_BHMass", m_mass);
     shader->SetUniform1f("u_a", m_a);
+    shader->SetUniform1f("u_Tmax", m_Tmax);
     shader->SetUniform1f("u_diskRotationAngle", m_diskRotationAngle);
 
     shader->SetUniform1i("u_msaa", m_msaa);
@@ -203,6 +197,8 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_epsilon", m_epsilon);
     shader->SetUniform1i("u_ODESolver", m_ODESolverSelector);
     shader->SetUniform1f("u_tolerance", m_tolerance);
+    shader->SetUniform1f("u_diskIntersectionThreshold", m_diskIntersectionThreshold);
+    shader->SetUniform1f("u_sphereIntersectionThreshold", m_sphereIntersectionThreshold);
 
     shader->SetUniform1i("diskTexture", m_diskTextureSlot);
     shader->SetUniform1i("skybox", m_skyboxTextureSlot);
@@ -323,6 +319,14 @@ void BlackHole::PostProcess()
     }
 }
 
+float BlackHole::CalculateKerrDistance(glm::vec3 p)
+{
+    float b = m_a * m_a - glm::dot(p, p);
+    float c = -m_a * m_a * p.y * p.y;
+    float r2 = 0.5f * (-b + sqrt(b * b - 4.0f * c));
+    return sqrt(r2);
+}
+
 float BlackHole::CalculateDrawDistance()
 {
     // Update the max distance to draw from the origin based on the camera's current coordinates
@@ -335,39 +339,63 @@ float BlackHole::CalculateDrawDistance()
     {
         // Kerr black hole.
         // r is the "distance" in the Kerr-Schild coordinates.
-        float b = m_a * m_a - glm::dot(p, p);
-        float c = -m_a * m_a * p.y * p.y;
-        float r2 = 0.5f * (-b + sqrt(b * b - 4.0f * c));
-        float r = sqrt(r2);
+        float r = CalculateKerrDistance(p);
+        m_insideHorizon = (r < m_mass + sqrt(m_mass * m_mass - m_a * m_a));
         return fmax(70.0f, r + 10.0f);
         break;
     }
 
-    // TODO: Figure out cases for classical BH and Minkowski.  Probably need to implement ODE solvers for those first.
-
     default:
-        // Flat space.
-        //return fmax(70.0, sqrt(glm::dot(p, p)));
-        return m_drawDistance;
+        // Flat space and classical BH.
+        m_insideHorizon = (sqrt(glm::dot(p, p)) < 2 * m_mass);
+        return fmax(70.0f, sqrt(glm::dot(p, p)));
         break;
     }
 }
 
-float BlackHole::CalculateISCO(float m, float a)
+void BlackHole::CalculateISCO()
 {
     // Calculate in the innermost stable circular orbit for a black hole with parameters mass m and rotation a.
     // Result is the theoretically smallest inner radius for a stable accretion disk.
     // Assumes G = c = 1
-    if (m == 0)
+    if (m_mass == 0)
     {
         // In this case, there is no stable orbit because there is no mass.  So the result is actually infinity.
-        return 0.0f;
+        m_risco = 0.0f;
     }
-    float rs = 2.0f * m;
-    float chi = 2.0f * a / rs;
-    float z1 = 1 + std::powf(1 - chi*chi, 1.0f/3.0f) * (std::powf(1 + chi, 1.0f/3.0f) + std::powf(1 - chi, 1.0f/3.0f));
+    float rs = 2.0f * m_mass;
+    float chi = 2.0f * m_a / rs;
+    float z1 = 1.0f + std::powf(1.0f - chi*chi, 1.0f/3.0f) * (std::powf(1.0f + chi, 1.0f/3.0f) + std::powf(1.0f - chi, 1.0f/3.0f));
     float z2 = std::powf(3.0f*chi*chi + z1*z1, 1.0f / 2.0f);
-    return m * (3 + z2 - std::powf((3-z1)*(3+z1+2*z2), 1.0f / 2.0f));
+    m_risco = m_mass * (3.0f + z2 - std::powf((3.0f-z1)*(3.0f+z1+2.0f*z2), 1.0f / 2.0f));
+
+    // Now calculate f(risco)
+    // Uses the black hole's mass and spin, along with a point on the equatorial accretion disk that's r away from the
+    // center of the black hole, to calculate f, a function used in the time-averaged flux of radiant energy
+    // from "Disk-accretion onto a black hole" by Page and Thorne (1973)
+    float astar = m_a / m_mass;
+    float x = sqrt((49.0f / 36.0f) * m_risco / m_mass);
+    float x0 = sqrt(m_risco / m_mass);
+    float pi = 3.141592653589793f;
+    // x1, x2, x3 are the roots of x^3 - 3*x + 2*astar = 0.
+    float x1 = 2.0f * cosf((1.0f / 3.0f) * acosf(astar) - pi / 3.0f);
+    float x2 = 2.0f * cosf((1.0f / 3.0f) * acosf(astar) + pi / 3.0f);
+    float x3 = -2.0f * cosf((1.0f / 3.0f) * acosf(astar));
+    float x1numer = 3.0f * (x1 - astar) * (x1 - astar);
+    float x1denom = x1 * (x1 - x2) * (x1 - x3);
+    float x2numer = 3.0f * (x2 - astar) * (x2 - astar);
+    float x2denom = x2 * (x2 - x1) * (x2 - x3);
+    float x3numer = 3.0f * (x3 - astar) * (x3 - astar);
+    float x3denom = x3 * (x3 - x1) * (x3 - x2);
+    float xdenom = x * x * (x * x * x - 3.0f * x + 2.0f * astar);
+    float logx0 = logf(x / x0);
+    float logx1 = logf((x - x1) / (x0 - x1));
+    float logx2 = logf((x - x2) / (x0 - x2));
+    float logx3 = logf((x - x3) / (x0 - x3));
+    m_fOfRISCO = (3.0f / (2.0f * m_mass)) * (1.0f / xdenom) * (x - x0 - (3.0f * astar / 2.0f) * logx0
+        - (x1numer / x1denom) * logx1 - (x2numer / x2denom) * logx2
+        - (x3numer / x3denom) * logx3);
+
 }
 
 void BlackHole::OnImGuiRender()
@@ -415,15 +443,14 @@ void BlackHole::OnImGuiRender()
             ImGui::Separator();
             ImGui::Separator();
 
-            ImGuiDebug();
-            ImGui::Separator();
-            ImGui::Separator();
-
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Lighting/Colour"))
         {
+            ImGuiDebug();
+            ImGui::Separator();
+            ImGui::Separator();
 
             ImGuiCinematic();
             ImGui::Separator();
@@ -468,14 +495,19 @@ void BlackHole::ImGuiChooseBH()
     {
         m_useBloom = true;
         m_selectedShaderString = m_kerrBlackHoleShaderPath;
+        SetShader(m_selectedShaderString);
         m_maxSteps = 200;
     }
     ImGui::SameLine();
-    HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  The parameter \"a\" above is the spin parameter.  a=0 is a non-rotating black hole.");
+    HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  "
+        "The parameter \"a\" above is the spin parameter.  a=0 is a non-rotating black hole.");
     if (ImGui::RadioButton("Classical BH (Fast)", &m_shaderSelector, 1))
     {
         m_useBloom = false;
-        m_selectedShaderString = m_gravitationalLensingShaderPath;
+        m_selectedShaderString = m_kerrBlackHoleShaderPath;
+        SetShader(m_selectedShaderString);
+        m_presetSelector = -1;
+        SetGraphicsPreset(defaultPreset);
         m_maxSteps = 2000;
     }
     ImGui::SameLine();
@@ -483,18 +515,20 @@ void BlackHole::ImGuiChooseBH()
     if (ImGui::RadioButton("Minkowski BH", &m_shaderSelector, 2))
     {
         m_useBloom = false;
-        m_selectedShaderString = m_flatSpacetimeShaderPath;
-        m_maxSteps = 200;
+        m_selectedShaderString = m_kerrBlackHoleShaderPath;
+        SetShader(m_selectedShaderString);
+        m_maxSteps = 2000;
     }
     ImGui::SameLine();
-    HelpMarker("Minkowski metric of General Relativity.  Equivalent to (but slower than) Flat BH (Fast).");
+    HelpMarker("Minkowski metric of General Relativity.  This is standard Euclidean 3-space.");
     if (ImGui::RadioButton("Flat BH (Fast)", &m_shaderSelector, 3))
     {
         m_useBloom = false;
         m_selectedShaderString = m_flatShaderPath;
+        SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
-    HelpMarker("Typical ray tracer using straight line rays/intersections.");
+    HelpMarker("Ray tracer using straight line rays/intersections.");
 }
 
 void BlackHole::ImGuiBHProperties()
@@ -518,18 +552,20 @@ void BlackHole::ImGuiBHProperties()
                 m_a = 0.0f;
             }
         }
+        CalculateISCO();
     }
     ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 1.5f * m_radius, 5.0f * m_radius, "Inner Disk Radius = %.1f");
     if (ImGui::Button("Set Inner Radius to ISCO"))
     {
-        float isco = CalculateISCO(m_mass, m_a);
-        m_diskInnerRadius = isco;
+        m_diskInnerRadius = m_risco;
     }
     ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 10.0f * m_radius,
         "Outer Disk Radius = %.1f");
-    if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.02f, 0.99f), "a = %.2f"))
+    if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.01f, 0.99f), "a = %.2f"))
     {
+        CalculateISCO();
     }
+    ImGui::SliderFloat("##Max Temperature", &m_Tmax, 1000.0f, 20000.0f, "Max Disk Temperature = %.0f");
     ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 7.0f, "Disk Absorption = %.1f");
     ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, 0.0f, 0.3f, "Disk Rotation Speed = %.3f");
 }
@@ -539,27 +575,31 @@ void BlackHole::ImGuiChooseODESolver()
     ImGui::Text("ODE Solver:");
     if (ImGui::RadioButton("Forward-Euler-Cromer", &m_ODESolverSelector, 0))
     {
+        SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
     HelpMarker("Least accurate, but fast.");
     if (ImGui::RadioButton("Classic RK4", &m_ODESolverSelector, 1))
     {
+        SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
     HelpMarker("More accurate than Forward-Euler-Cromer, but it doesn't choose stepsize intelligently.");
     if (ImGui::RadioButton("Adaptive RK2/3", &m_ODESolverSelector, 2))
     {
+        SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
     HelpMarker("Bogacki-Shampine Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.");
     if (ImGui::RadioButton("Adaptive RK4/5", &m_ODESolverSelector, 3))
     {
+        SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
     HelpMarker("Dormand-Prince Method.  Use the tolerance slider to choose a trade-off between speed and accuracy."
                 "  Note that because of its high accuracy, this solver takes very large steps.  This can cause issues with "
                 "detecting that the rays hit the accretion disk.  As a result, the inner edge of the disk may look "
-                "fuzzy.");
+                "jagged.");
 }
 
 void BlackHole::ImGuiSimQuality()
@@ -570,9 +610,11 @@ void BlackHole::ImGuiSimQuality()
         "can also make the ring or black hole disappear.  If this happens, increase Max Steps to "
         "make everything reappear with greater accuracy.  WARNING: this will significantly increase "
         "computational cost and slow down the simulation.");
-    ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 1000, "Max Steps = %d", 0);
+    ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 1000, "Max Steps = %d");
+    ImGui::SliderFloat("##Disk Intersection Threshold", &m_diskIntersectionThreshold, 0.0001f, 0.1f, "Disk Intersection Error = %.4f");
+    ImGui::SliderFloat("##Sphere Intersection Threshold", &m_sphereIntersectionThreshold, 0.0001f, 0.1f, "Sphere Intersection Error = %.4f");
     //ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 0.5f, "Step Size = %.2f");
-    ImGui::SliderFloat("##drawDistance", &m_drawDistance, 1.0f, 1000.0, "Max Distance = %.0f");
+    //ImGui::SliderFloat("##drawDistance", &m_drawDistance, 1.0f, 1000.0, "Max Distance = %.0f");
     //ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
     if (m_ODESolverSelector == 2 || m_ODESolverSelector == 3)
     {
@@ -676,7 +718,7 @@ void BlackHole::SetProjectionMatrix()
     m_quad.SetProjection(m_proj, false);
 }
 
-void BlackHole::SetGraphicsPreset(graphicsPreset preset)
+void BlackHole::SetGraphicsPreset(const graphicsPreset &preset)
 {
     m_bloomThreshold = preset.bloomThreshold;
     m_bloomBackgroundMultiplier = preset.bloomBackgroundMultiplier;
@@ -688,4 +730,48 @@ void BlackHole::SetGraphicsPreset(graphicsPreset preset)
     m_colourshiftPower = preset.colourshiftPower;
     m_colourshiftMultiplier = preset.colourshiftMultiplier;
     m_colourshiftOffset = preset.colourshiftOffset;
+}
+
+void BlackHole::SetShader(const std::string& filePath)
+{
+    // Load and compile, if necessary, the black hole shader and set uniforms.
+    //std::shared_ptr<Shader> shader = Renderer::Get().GetShader(filePath);
+    SetShaderDefines();
+    std::shared_ptr<Shader> shader = Renderer::Get().GetShader(filePath, m_vertexDefines, m_fragmentDefines);
+    shader->Bind();
+    SetShaderUniforms();
+}
+
+void BlackHole::SetShaderDefines()
+{
+    m_vertexDefines.clear();
+    m_fragmentDefines.clear();
+
+    switch (m_shaderSelector)
+    {
+    case 0:
+        // Kerr black hole
+        m_fragmentDefines.push_back("KERR 1");
+        m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
+        m_a = 0.6f;
+        CalculateISCO();
+        break;
+    case 1:
+        // Classical black hole
+        m_fragmentDefines.push_back("CLASSICAL 1");
+        m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
+        m_a = 0.0f;
+        CalculateISCO();
+        break;
+    case 2:
+        // Minkowski black hole
+        m_fragmentDefines.push_back("MINKOWSKI 1");
+        m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
+        m_a = 0.0f;
+        CalculateISCO();
+        break;
+    case 3:
+        // Classical ray-traced flatspace.
+        break;
+    }
 }

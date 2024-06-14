@@ -21,7 +21,8 @@ Mesh::~Mesh()
 
 void Mesh::Initialize(const float* vertData, unsigned int numVerts, VertexBufferLayout layout,
 	const unsigned int* indexBuffer, unsigned int numIndices, const std::string& shaderPath,
-	const std::string& texturePath, bool flip)
+	const std::string& texturePath, bool flip, const std::vector<std::string>& vertexDefines, 
+	const std::vector<std::string>& fragmentDefines)
 {
 	if (!texturePath.empty())
 	{
@@ -37,7 +38,7 @@ void Mesh::Initialize(const float* vertData, unsigned int numVerts, VertexBuffer
 
 	m_ibo = std::make_shared<IndexBuffer>(indexBuffer, numIndices);
 
-	SetShader(shaderPath);
+	SetShader(shaderPath, vertexDefines, fragmentDefines);
 }
 
 void Mesh::SetTexture(const std::string& path, bool flip)
@@ -51,6 +52,14 @@ void Mesh::SetTexture(const std::string& path, bool flip)
 void Mesh::SetShader(const std::string& path)
 {
 	m_shader = Renderer::Get().GetShader(path);
+	m_shader->Bind();
+	m_shader->SetUniformMat4f("u_MVP", m_Proj);
+	m_shader->Unbind();
+}
+
+void Mesh::SetShader(const std::string& path, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines)
+{
+	m_shader = Renderer::Get().GetShader(path, vertexDefines, fragmentDefines);
 	m_shader->Bind();
 	m_shader->SetUniformMat4f("u_MVP", m_Proj);
 	m_shader->Unbind();

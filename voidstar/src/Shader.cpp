@@ -8,14 +8,23 @@
 #include "Renderer.h"
 
 Shader::Shader()
-    : m_RendererID(0), m_FilePath("")
 {
 }
 
 Shader::Shader(const std::string& filepath)
-	: m_FilePath(filepath), m_RendererID(0)
 {
+    m_FilePath = filepath;
     ShaderProgramSource source = ParseShader(filepath);
+    m_RendererID = CreateShaderProgram(source.VertexSource, source.FragmentSource);
+}
+
+Shader::Shader(const std::string& filepath, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines)
+{
+    m_FilePath = filepath;
+    ShaderProgramSource source = ParseShader(filepath);
+    InsertDefines(source.VertexSource, vertexDefines);
+    InsertDefines(source.FragmentSource, fragmentDefines);
+
     m_RendererID = CreateShaderProgram(source.VertexSource, source.FragmentSource);
 }
 
@@ -65,6 +74,35 @@ ShaderProgramSource Shader::ParseShader(const std::string& filepath)
     return { ss[0].str(), ss[1].str() };
 }
 
+void Shader::InsertDefines(std::string& shadersource, const std::vector<std::string>& defines)
+{
+
+    // Now go through the source and insert the defines lines.
+    // Find the #version declaration.  Defines must always go after this.
+    size_t found = shadersource.find("#version", 0);
+    size_t insertloc;
+    if (found != std::string::npos)
+    {
+        // Now find the next newline.
+        insertloc = shadersource.find("\n", found) + 1;
+    }
+    else
+    {
+        // Then there's no #version declaration and we can just insert at the beginning of the file.
+        insertloc = 0;
+    }
+    for (auto& defStatement : defines)
+    {
+        if (!defStatement.empty())
+        {
+            m_FilePath.append(defStatement);
+            shadersource.insert(insertloc, "\n");
+            shadersource.insert(insertloc, defStatement);
+            shadersource.insert(insertloc, "#define ");
+        }
+    }
+}
+
 unsigned int Shader::CompileShader(const std::string& source, unsigned int type)
 {
     unsigned int id = glCreateShader(type);
@@ -100,12 +138,18 @@ unsigned int Shader::CreateShaderProgram(const std::string& vertexShader, const 
     GLCall(glAttachShader(program, fs));
 
     GLCall(glLinkProgram(program));
+#ifndef NDEBUG
     GLCall(glValidateProgram(program));
+#endif
 
     GLCall(glDetachShader(program, vs));
     GLCall(glDetachShader(program, fs));
     GLCall(glDeleteShader(vs));
     GLCall(glDeleteShader(fs));
+
+#ifndef NDEBUG
+    std::cout << "Created shader program: " << m_FilePath << ", with RendererID: " << program << std::endl;
+#endif
 
     return program;
 }

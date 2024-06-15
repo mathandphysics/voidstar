@@ -210,8 +210,7 @@ float multifractal_noise(vec3 xyz, int octaves, float scale, float lacunarity, f
     // Multifractal noise with multiplied fractals rather than added.
     // My attempt to emulate Blender's 3D multifractal noise shader.
     float val = 1.0;
-    float amplitude = 1.0;
-    //float amplitude = scale;
+    float amplitude = scale;
     float gain = pow(lacunarity, -dimension);
     float frequency = 1.0;
 
@@ -282,6 +281,30 @@ mat4 invmetric(vec4 x)
 }
 #endif
 
+#ifdef MINKOWSKI
+mat4 metric(vec4 x)
+{
+    return diag(vec4(-1.0, 1.0, 1.0, 1.0));
+}
+
+mat4 invmetric(vec4 x)
+{
+    return diag(vec4(-1.0, 1.0, 1.0, 1.0));
+}
+#endif
+
+#ifdef CLASSICAL
+mat4 metric(vec4 x)
+{
+    return diag(vec4(1.0, 1.0, 1.0, 1.0));
+}
+
+mat4 invmetric(vec4 x)
+{
+    return diag(vec4(1.0, 1.0, 1.0, 1.0));
+}
+#endif
+
 float metricDistance(vec4 x)
 {
 #ifdef KERR
@@ -296,30 +319,6 @@ float metricDistance(vec4 x)
     return sqrt(x.y * x.y + x.z * x.z + x.w * x.w);
 #endif
 }
-
-#ifdef MINKOWSKI
-mat4 metric(vec4 x)
-{
-    return diag(vec4(-1.0, 1.0, 1.0, 1.0));
-}
-
-mat4 invmetric(vec4 x)
-{
-    return diag(vec4(-1.0, 1.0, 1.0, 1.0));
-}
-#endif
-
-#ifdef CLASSICAL
-mat4 metric(vec4 x)
-{
-    return diag(vec4(1.0, 1.0, 1.0, 1.0));
-}
-
-mat4 invmetric(vec4 x)
-{
-    return diag(vec4(1.0, 1.0, 1.0, 1.0));
-}
-#endif
 
 float gravRedshift(vec4 emitterx, vec4 receiverx)
 {
@@ -462,6 +461,7 @@ mat2x4 fasterxpupdate(in mat2x4 xp, float dl)
 }
 #endif
 
+#if (ODE_SOLVER == 0)
 mat2x4 xpupdateImplicitEuler(in mat2x4 xp, float dl)
 {
     // https://en.wikipedia.org/wiki/Semi-implicit_Euler_method
@@ -473,7 +473,6 @@ mat2x4 xpupdateImplicitEuler(in mat2x4 xp, float dl)
 
     return dxp;
 }
-
 
 mat2x4 fasterxpupdateImplicitEuler(in mat2x4 xp, float dl)
 {
@@ -507,6 +506,7 @@ mat2x4 fasterxpupdateImplicitEuler(in mat2x4 xp, float dl)
 
     return dxp;
 }
+#endif
 
 
 /////////////////////////////////////////////////////
@@ -532,7 +532,7 @@ mat2x4 integrationStep(mat2x4 xp, float dl)
 }
 #endif
 
-#if (ODE_SOLVER == 1 || ODE_SOLVER == 2 || ODE_SOLVER == 3)
+#if (ODE_SOLVER == 1 || ODE_SOLVER == 3)
 mat2x4 RK4integrationStep(mat2x4 xp, float dl)
 {
     // Classic Runge-Kutta 4.  Note that the differential equations here don't explicitly depend on the 
@@ -551,6 +551,7 @@ mat2x4 RK4integrationStep(mat2x4 xp, float dl)
 }
 #endif
 
+#if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
 void RK23integrationStep(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, float stepsize)
 {
     // Bogacki-Shampine Method.
@@ -572,6 +573,32 @@ void RK23integrationStep(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, 
     nextxp2 = xp + (7.0 / 24.0) * k1 + (1.0 / 4.0) * k2 + (1.0 / 3.0) * k3 + (1.0 / 8.0) * k4;
 }
 
+void RK23integrationStepFSAL(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, float stepsize, inout mat2x4 FSAL)
+{
+    // Bogacki-Shampine Method.
+    // https://en.wikipedia.org/wiki/Bogacki%E2%80%93Shampine_method
+    // Note that the differential equations here don't explicitly depend on the 
+    // affine parameter.  i.e. instead of dy/dt = f(t, y), we just have dy/dt = f(y).
+    // So the vector field f is stationary in time.  This simplifies the xpupdate function.
+    // Here y is the vector of (x, p) and f is the vector of (dH/dp, -dH/dx).
+
+    // Also uses the first-same-as-last (FSAL) optimization.
+    mat2x4 k1;
+    mat2x4 k2;
+    mat2x4 k3;
+    mat2x4 k4;
+
+    k1 = FSAL * stepsize;
+    k2 = fasterxpupdate(xp + 0.5 * k1, stepsize);
+    k3 = fasterxpupdate(xp + 0.75 * k2, stepsize);
+    nextxp1 = xp + (2.0 / 9.0) * k1 + (1.0 / 3.0) * k2 + (4.0 / 9.0) * k3;
+    k4 = fasterxpupdate(nextxp1, stepsize);
+    nextxp2 = xp + (7.0 / 24.0) * k1 + (1.0 / 4.0) * k2 + (1.0 / 3.0) * k3 + (1.0 / 8.0) * k4;
+    FSAL = k4 / stepsize;
+}
+#endif
+
+#if (ODE_SOLVER == 3)
 void RK45integrationStep(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, float stepsize)
 {
     // Dormand-Prince Method.
@@ -599,8 +626,39 @@ void RK45integrationStep(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, 
     nextxp2 = xp + (5179.0/57600.0)*k1 + (0.0)*k2 + (7571.0/16695.0)*k3 + (393.0/640.0)*k4 + (-92097.0/339200.0)*k5 + (187.0/2100.0)*k6 + (1.0/40.0)*k7;
 }
 
+void RK45integrationStepFSAL(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextxp2, float stepsize, inout mat2x4 FSAL)
+{
+    // Dormand-Prince Method.
+    // https://en.wikipedia.org/wiki/Dormand%E2%80%93Prince_method
+    // Note that the differential equations here don't explicitly depend on the 
+    // affine parameter.  i.e. instead of dy/dt = f(t, y), we just have dy/dt = f(y).
+    // So the vector field f is stationary in time.  This simplifies the xpupdate function.
+    // Here y is the vector of (x, p) and f is the vector of (dH/dp, -dH/dx).
+
+    // Also uses the first-same-as-last (FSAL) optimization.
+    mat2x4 k1;
+    mat2x4 k2;
+    mat2x4 k3;
+    mat2x4 k4;
+    mat2x4 k5;
+    mat2x4 k6;
+    mat2x4 k7;
+
+    k1 = FSAL * stepsize;
+    k2 = fasterxpupdate(xp + 0.2 * k1, stepsize);
+    k3 = fasterxpupdate(xp + (3.0 / 40.0) * k1 + (9.0 / 40.0) * k2, stepsize);
+    k4 = fasterxpupdate(xp + (44.0 / 45.0) * k1 + (-56.0 / 15.0) * k2 + (32.0 / 9.0) * k3, stepsize);
+    k5 = fasterxpupdate(xp + (19372.0 / 6561.0) * k1 + (-25360.0 / 2187.0) * k2 + (64448.0 / 6561.0) * k3 + (-212.0 / 729.0) * k4, stepsize);
+    k6 = fasterxpupdate(xp + (9017.0 / 3168.0) * k1 + (-355.0 / 33.0) * k2 + (46732.0 / 5247.0) * k3 + (49.0 / 176.0) * k4 + (-5103.0 / 18656.0) * k5, stepsize);
+    nextxp1 = xp + (35.0 / 384.0) * k1 + (0.0) * k2 + (500.0 / 1113.0) * k3 + (125.0 / 192.0) * k4 + (-2187.0 / 6784.0) * k5 + (11.0 / 84.0) * k6;
+    k7 = fasterxpupdate(nextxp1, stepsize);
+    nextxp2 = xp + (5179.0 / 57600.0) * k1 + (0.0) * k2 + (7571.0 / 16695.0) * k3 + (393.0 / 640.0) * k4 + (-92097.0 / 339200.0) * k5 + (187.0 / 2100.0) * k6 + (1.0 / 40.0) * k7;
+    FSAL = k7 / stepsize;
+}
+#endif
+
 #if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
-mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize)
+mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize, inout mat2x4 FSAL)
 {
     // oldStepSize is the size of the step that is actually used in the integration step.  stepsize is then updated
     // for the next step based on the error.
@@ -626,13 +684,15 @@ mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize)
 #elif (ODE_SOLVER == 3)
     power = 1.0 / 5.0;
 #endif
+    
+    mat2x4 localFSAL = FSAL;
 
     // Rather than running a while loop, which can crash the program in rare edge cases, we attempt to find
     // a stepsize that produces an acceptable error size in at most max_attempts.
     int max_attempts = 10;
     for (int i = 0; i < max_attempts; i++)
     {
-
+        localFSAL = FSAL;
         // HACK.  The adaptive driver steps too far for flat or close to flat spacetimes.  This causes it to miss
         // crossing the disk or the sphere.
 #ifdef CLASSICAL
@@ -642,11 +702,12 @@ mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize)
         stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
 #endif
 
-        // TODO: Reduce this to one fewer xpupdate calls using the First Same As Last (FSAL) property.
 #if (ODE_SOLVER == 2)
-        RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
+        //RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
+        RK23integrationStepFSAL(xp, nextxp1, nextxp2, stepsize, localFSAL);
 #elif (ODE_SOLVER == 3)
-        RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
+        RK45integrationStepFSAL(xp, nextxp1, nextxp2, stepsize, localFSAL);
+        //RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
 #endif
 
         // Now adapt stepsize:
@@ -677,11 +738,8 @@ mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize)
         stepsize *= stepSizeRatio;
     }
 
-#if (ODE_SOLVER == 2)
+    FSAL = localFSAL;
     return nextxp1;
-#elif (ODE_SOLVER == 3)
-    return nextxp2;
-#endif
 }
 #endif
 
@@ -701,6 +759,8 @@ void BSDiskIntersectionPoint(mat2x4 previousxp, mat2x4 xp, out mat2x4 diskInters
     mat2x4 xptest;
 #if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
     mat2x4 xptest2;
+    mat2x4 FSAL = fasterxpupdate(previousxp, stepsize) / stepsize;
+    mat2x4 localFSAL = FSAL;
 #endif
     if (abs(previousxp[0][2]) < u_diskIntersectionThreshold)
     {
@@ -714,13 +774,15 @@ void BSDiskIntersectionPoint(mat2x4 previousxp, mat2x4 xp, out mat2x4 diskInters
     {
         for (int j = 0; j < BS_attempts; j++)
         {
+            localFSAL = FSAL;
             midpoint = (leftEndpoint + rightEndpoint) / 2.0;
 #if (ODE_SOLVER == 0)
             xptest = integrationStep(previousxp, midpoint);
 #elif (ODE_SOLVER == 1)
             xptest = RK4integrationStep(previousxp, midpoint);
 #elif (ODE_SOLVER == 2)
-            RK23integrationStep(previousxp, xptest, xptest2, midpoint);
+            //RK23integrationStep(previousxp, xptest, xptest2, midpoint);
+            RK23integrationStepFSAL(previousxp, xptest, xptest2, midpoint, localFSAL);
 #elif (ODE_SOLVER == 3)
             //RK45integrationStep(previousxp, xptest, xptest2, midpoint);
             xptest = RK4integrationStep(previousxp, midpoint);
@@ -760,19 +822,24 @@ void BSSphereIntersectionPoint(mat2x4 xp, out mat2x4 sphereIntersectionPoint, fl
     mat2x4 xptest;
 #if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
     mat2x4 xptest2;
+    mat2x4 FSAL = fasterxpupdate(xp, stepsize) / stepsize;
+    mat2x4 localFSAL = FSAL;
 #endif
     for (int j = 0; j < BS_attempts; j++)
     {
+        localFSAL = FSAL;
         midpoint = (leftEndpoint + rightEndpoint) / 2.0;
 #if (ODE_SOLVER == 0)
         xptest = integrationStep(xp, midpoint);
 #elif (ODE_SOLVER == 1)
         xptest = RK4integrationStep(xp, midpoint);
 #elif (ODE_SOLVER == 2)
-        RK23integrationStep(xp, xptest, xptest2, midpoint);
+        //RK23integrationStep(xp, xptest, xptest2, midpoint);
+        RK23integrationStepFSAL(xp, xptest, xptest2, midpoint, localFSAL);
 #elif (ODE_SOLVER == 3)
         //RK45integrationStep(xp, xptest, xptest2, midpoint);
-        RK23integrationStep(xp, xptest, xptest2, midpoint);
+        //RK23integrationStep(xp, xptest, xptest2, midpoint);
+        RK23integrationStepFSAL(xp, xptest, xptest2, midpoint, localFSAL);
         //xptest = RK4integrationStep(xp, midpoint);
 #endif
         dist = metricDistance(xptest[0]);
@@ -875,7 +942,7 @@ vec3 sampleDiskTexture(vec3 p)
         float power = pow(theta, rotational_smear);
         float rho = length(p);
         float rhohalf = sqrt(rho);
-        float spiral_factor = 5.0;
+        float spiral_factor = 3.0;
         float spiral = map(rhohalf, 0.0, 5.0, 0.0, spiral_factor);
         phi += spiral + u_diskRotationAngle;
         vec3 xyz = vec3(r * sin(power) * cos(phi), r * sin(power) * sin(phi), r * cos(power));
@@ -886,8 +953,8 @@ vec3 sampleDiskTexture(vec3 p)
         float n = multifractal_noise(xyz, octaves, amplitude, lacunarity, dimension);
         //float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
         float radialDimming = clamp(100.0 * pow(rho, -2.5), 0.0, 1.0);
-        //col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n);
-        col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n) * radialDimming;
+        col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n);
+        //col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n) * radialDimming;
     }
     return col;
 }
@@ -974,7 +1041,7 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
         float temperature = observedTemperature(r, a, brightnessFromVel);
 #else
         // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
-        float blueshift = pow(1.0 / dot(diskIntersectionPoint[1], diskVel), 3.0);
+        float blueshift = pow(dot(diskIntersectionPoint[1], diskVel), -u_brightnessFromDiskVel);
         float temperature = observedTemperature(r, a, blueshift);
         //float brightnessFromVel = pow(dot(diskIntersectionPoint[1], diskVel), -u_brightnessFromDiskVel);
         float brightnessFromVel = blueshift;
@@ -994,9 +1061,10 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
         // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
         vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
         // The brighter the disk is at the intersection point, the higher the absorption.
-        //absorption = dot(brightnessMultiplier, diskSample) * u_diskAbsorption * (u_OuterRadius - diskDist);
-        //absorption = brightnessFromRadius * u_diskAbsorption * (u_OuterRadius - diskDist);
-        absorption = u_diskAbsorption * (u_OuterRadius - r);
+        //absorption = dot(brightnessMultiplier, diskSample) * u_diskAbsorption * (u_OuterRadius - r);
+        //absorption = brightnessFromRadius * u_diskAbsorption * (u_OuterRadius - r);
+        //absorption = u_diskAbsorption * (u_OuterRadius - r);
+        absorption = u_diskAbsorption * dot(brightnessMultiplier, diskSample);
         T *= exp(-absorption);
     }
 }
@@ -1063,6 +1131,9 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     // Cheap, dumb stepsize heuristic
     float stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
     float oldStepSize;
+#if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
+    mat2x4 FSAL = fasterxpupdate(xp, stepSize) / stepSize;
+#endif
     for (int i = 0; i < u_maxSteps; i++)
     {
         previousxp = xp;
@@ -1079,7 +1150,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
         oldStepSize = stepSize;
         stepSize = 0.01 + (dist - horizon) * 1.0 / 5.0;
 #elif (ODE_SOLVER == 2 || ODE_SOLVER == 3)
-        xp = adaptiveRKDriver(xp, stepSize, oldStepSize);
+        xp = adaptiveRKDriver(xp, stepSize, oldStepSize, FSAL);
         dist = metricDistance(xp[0]);
 #endif
 

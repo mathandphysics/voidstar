@@ -497,6 +497,8 @@ void BlackHole::ImGuiChooseBH()
         m_selectedShaderString = m_kerrBlackHoleShaderPath;
         SetShader(m_selectedShaderString);
         m_maxSteps = 200;
+        m_a = 0.6f;
+        CalculateISCO();
     }
     ImGui::SameLine();
     HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  "
@@ -509,6 +511,8 @@ void BlackHole::ImGuiChooseBH()
         m_presetSelector = -1;
         SetGraphicsPreset(defaultPreset);
         m_maxSteps = 2000;
+        m_a = 0.0f;
+        CalculateISCO();
     }
     ImGui::SameLine();
     HelpMarker("Inaccurate, non-rotating black hole based on Newtonian Gravity.");
@@ -518,6 +522,8 @@ void BlackHole::ImGuiChooseBH()
         m_selectedShaderString = m_kerrBlackHoleShaderPath;
         SetShader(m_selectedShaderString);
         m_maxSteps = 2000;
+        m_a = 0.0;
+        CalculateISCO();
     }
     ImGui::SameLine();
     HelpMarker("Minkowski metric of General Relativity.  This is standard Euclidean 3-space.");
@@ -753,22 +759,16 @@ void BlackHole::SetShaderDefines()
         // Kerr black hole
         m_fragmentDefines.push_back("KERR 1");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
-        m_a = 0.6f;
-        CalculateISCO();
         break;
     case 1:
         // Classical black hole
         m_fragmentDefines.push_back("CLASSICAL 1");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
-        m_a = 0.0f;
-        CalculateISCO();
         break;
     case 2:
         // Minkowski black hole
         m_fragmentDefines.push_back("MINKOWSKI 1");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
-        m_a = 0.0f;
-        CalculateISCO();
         break;
     case 3:
         // Classical ray-traced flatspace.

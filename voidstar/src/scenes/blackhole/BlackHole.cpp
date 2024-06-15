@@ -340,15 +340,30 @@ float BlackHole::CalculateDrawDistance()
         // Kerr black hole.
         // r is the "distance" in the Kerr-Schild coordinates.
         float r = CalculateKerrDistance(p);
-        m_insideHorizon = (r < m_mass + sqrt(m_mass * m_mass - m_a * m_a));
+        bool horizonTest = (r < m_mass + sqrt(m_mass * m_mass - m_a * m_a));
+        if (horizonTest != m_insideHorizon)
+        {
+            m_insideHorizon = horizonTest;
+            if (m_insideHorizon == true)
+            {
+                m_tolerance = 0.00005f;
+                m_maxSteps = 40;
+            }
+            else
+            {
+                m_tolerance = 0.01f;
+                m_maxSteps = 200;
+            }
+            SetShaderDefines();
+        }
         return fmax(70.0f, r + 10.0f);
         break;
     }
-
     default:
         // Flat space and classical BH.
-        m_insideHorizon = (sqrt(glm::dot(p, p)) < 2 * m_mass);
-        return fmax(70.0f, sqrt(glm::dot(p, p)));
+        float r = sqrt(glm::dot(p, p));
+        m_insideHorizon = (r < 2 * m_mass);
+        return fmax(70.0f, r + 10.0f);
         break;
     }
 }
@@ -757,17 +772,21 @@ void BlackHole::SetShaderDefines()
     {
     case 0:
         // Kerr black hole
-        m_fragmentDefines.push_back("KERR 1");
+        m_fragmentDefines.push_back("KERR");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
+        if (m_insideHorizon)
+        {
+            m_fragmentDefines.push_back("INSIDE_HORIZON");
+        }
         break;
     case 1:
         // Classical black hole
-        m_fragmentDefines.push_back("CLASSICAL 1");
+        m_fragmentDefines.push_back("CLASSICAL");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
         break;
     case 2:
         // Minkowski black hole
-        m_fragmentDefines.push_back("MINKOWSKI 1");
+        m_fragmentDefines.push_back("MINKOWSKI");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
         break;
     case 3:

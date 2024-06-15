@@ -242,6 +242,45 @@ float implicitr(vec4 x)
     return sqrt(r2);
 }
 
+#ifdef INSIDE_HORIZON
+mat4 metric(vec4 x)
+{
+    // Calculate the Kerr metric in outgoing Kerr-Schild coordinates at the position x.  G = c = 1.  Signature (-+++).
+    // This differs slightly from the definition in https://arxiv.org/abs/0706.0622
+    // because that paper has Cartesian z as the up direction, while this program has Cartesian y
+    // as the up direction.
+    vec3 p = x.yzw;
+    float r = implicitr(x);
+    float r2 = r * r;
+    float a2 = u_a * u_a;
+    float f = 2.0 * u_BHMass * r2 * r / (r2 * r2 + a2 * p.y * p.y);
+    vec4 l = vec4(-1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+    return diag(vec4(-1.0, 1.0, 1.0, 1.0)) + f * outerProduct(l, l);
+}
+
+mat4 invmetric(vec4 x)
+{
+    // Generic inverse metric:
+    //return inverse(metric(x));
+
+    // For general Kerr-Schild form decompositions, we can use
+    // https://en.wikipedia.org/wiki/Sherman%E2%80%93Morrison_formula.
+    // In this specific case of the Kerr metric though, we have a formula for the inverse that has identical
+    // cost to the metric.
+
+    // Calculate the inverse Kerr metric in outgoing Kerr-Schild coordinates at the position x.  G = c = 1. Signature (-+++).
+    // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
+    // Due to the convenient decomposition of these coordinates, this has pretty much identical computational cost as
+    // the metric.
+    vec3 p = x.yzw;
+    float r = implicitr(x);
+    float r2 = r * r;
+    float a2 = u_a * u_a;
+    float f = 2.0 * u_BHMass * r2 * r / (r2 * r2 + a2 * p.y * p.y);
+    vec4 l = vec4(1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+    return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * outerProduct(l, l);
+}
+#else
 mat4 metric(vec4 x)
 {
     // Calculate the Kerr metric in ingoing Kerr-Schild coordinates at the position x.  G = c = 1.  Signature (-+++).
@@ -279,6 +318,7 @@ mat4 invmetric(vec4 x)
     vec4 l = vec4(-1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * outerProduct(l, l);
 }
+#endif
 #endif
 
 #ifdef MINKOWSKI
@@ -582,7 +622,7 @@ void RK23integrationStepFSAL(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextx
     // So the vector field f is stationary in time.  This simplifies the xpupdate function.
     // Here y is the vector of (x, p) and f is the vector of (dH/dp, -dH/dx).
 
-    // Also uses the first-same-as-last (FSAL) optimization.
+    // This version of the function uses the first-same-as-last (FSAL) optimization.
     mat2x4 k1;
     mat2x4 k2;
     mat2x4 k3;
@@ -635,7 +675,7 @@ void RK45integrationStepFSAL(mat2x4 xp, inout mat2x4 nextxp1, inout mat2x4 nextx
     // So the vector field f is stationary in time.  This simplifies the xpupdate function.
     // Here y is the vector of (x, p) and f is the vector of (dH/dp, -dH/dx).
 
-    // Also uses the first-same-as-last (FSAL) optimization.
+    // This version of the function uses the first-same-as-last (FSAL) optimization.
     mat2x4 k1;
     mat2x4 k2;
     mat2x4 k3;
@@ -703,8 +743,8 @@ mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize, 
 #endif
 
 #if (ODE_SOLVER == 2)
-        //RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
         RK23integrationStepFSAL(xp, nextxp1, nextxp2, stepsize, localFSAL);
+        //RK23integrationStep(xp, nextxp1, nextxp2, stepsize);
 #elif (ODE_SOLVER == 3)
         RK45integrationStepFSAL(xp, nextxp1, nextxp2, stepsize, localFSAL);
         //RK45integrationStep(xp, nextxp1, nextxp2, stepsize);
@@ -785,6 +825,7 @@ void BSDiskIntersectionPoint(mat2x4 previousxp, mat2x4 xp, out mat2x4 diskInters
             RK23integrationStepFSAL(previousxp, xptest, xptest2, midpoint, localFSAL);
 #elif (ODE_SOLVER == 3)
             //RK45integrationStep(previousxp, xptest, xptest2, midpoint);
+            //RK45integrationStepFSAL(previousxp, xptest, xptest2, midpoint, localFSAL);
             xptest = RK4integrationStep(previousxp, midpoint);
 #endif
             if (abs(xptest[0][2]) < u_diskIntersectionThreshold)
@@ -1010,6 +1051,11 @@ float observedTemperature(float r, float a, float blueshift)
     // from "Detecting Accretion Disks in Active Galactic Nuclei" by Fanton, et al (1997).
     // (49/36)*R_isco is the radial distance where the accretion disk attains its maximum brightness / temperature.
     float r_max = (49.0 / 36.0) * u_risco;
+
+    // This r-mapping is a hack to make the disc look nice when the disk's inner radius is set to be smaller than the ISCO.
+    // Of course this has no basis in reality.
+    //r = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
+
     return blueshift * u_Tmax * pow(f(r, a) * r_max / (r * f(r_max, a)), 1.0 / 4.0);
 }
 
@@ -1100,7 +1146,8 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     mat2x4 xp;
     xp[0] = vec4(0.0, cameraPos);
     mat2x4 previousxp;
-    cameraDist = metricDistance(xp[0]);
+    dist = metricDistance(xp[0]);
+    cameraDist = dist;
     if (cameraDist > horizon)
     {
         xp[1] = metric(xp[0]) * vec4(1.0, rayDir);
@@ -1127,9 +1174,13 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
         bloomBackgroundMultiplier = min(1.0, u_bloomBackgroundMultiplier);
     }
 
-    dist = metricDistance(xp[0]);
+    float stepSize;
+#ifdef INSIDE_HORIZON
+    stepSize = 0.01;
+#else
     // Cheap, dumb stepsize heuristic
-    float stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
+    stepSize = 0.01 + (dist - horizon) / 10.0;
+#endif
     float oldStepSize;
 #if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
     mat2x4 FSAL = fasterxpupdate(xp, stepSize) / stepSize;

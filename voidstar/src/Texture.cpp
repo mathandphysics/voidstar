@@ -3,6 +3,7 @@
 #include "Renderer.h"
 
 #include <iostream>
+#include <fstream>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -54,7 +55,7 @@ void Image::Load(bool flip)
 		}
 		else
 		{
-			std::cout << "Cubemap tex failed to load at path: " << m_FilePath << std::endl;
+			std::cout << "Texture failed to load at path: " << m_FilePath << std::endl;
 		}
 	}
 	else
@@ -67,7 +68,7 @@ void Image::Unload()
 {
 	if (m_FileBuffer)
 	{
-		stbi_image_free(m_FileBuffer);
+		free(m_FileBuffer);
 	}
 	m_FileBuffer = NULL;
 }
@@ -204,4 +205,82 @@ void TextureCubeMap::Bind(unsigned int slot) const
 void TextureCubeMap::Unbind() const
 {
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+}
+
+
+
+ApplicationIcon::ApplicationIcon(const std::string& filePath)
+{
+	Load(filePath);
+}
+
+ApplicationIcon::~ApplicationIcon()
+{
+	for (GLFWimage im : m_images)
+	{
+		if (im.pixels)
+		{
+			free(im.pixels);
+		}
+		im.pixels = NULL;
+	}
+}
+
+void ApplicationIcon::Load(const std::string& filePath)
+{
+	// Adapted from https://github.com/nothings/stb/issues/688#issuecomment-453679148
+	// Expects the .ico to be packed with .pngs, which is how Pillow saves .icos by default anyway.
+
+	// Icon File Header (6 bytes)
+	typedef struct {
+		unsigned short reserved;    // Must always be 0.
+		unsigned short imageType;   // Specifies image type: 1 for icon (.ICO) image, 2 for cursor (.CUR) image. Other values are invalid.
+		unsigned short imageCount;  // Specifies number of images in the file.
+	} IcoHeader;
+
+	// Icon Entry info (16 bytes)
+	typedef struct {
+		unsigned char width;        // Specifies image width in pixels. Can be any number between 0 and 255. Value 0 means image width is 256 pixels.
+		unsigned char height;       // Specifies image height in pixels. Can be any number between 0 and 255. Value 0 means image height is 256 pixels.
+		unsigned char colpalette;   // Specifies number of colors in the color palette. Should be 0 if the image does not use a color palette.
+		unsigned char reserved;     // Reserved. Should be 0.
+		unsigned short planes;      // In ICO format: Specifies color planes. Should be 0 or 1.
+		// In CUR format: Specifies the horizontal coordinates of the hotspot in number of pixels from the left.
+		unsigned short bpp;         // In ICO format: Specifies bits per pixel. [Notes 4]
+		// In CUR format: Specifies the vertical coordinates of the hotspot in number of pixels from the top.
+		unsigned int size;          // Specifies the size of the image's data in bytes
+		unsigned int offset;        // Specifies the offset of BMP or PNG data from the beginning of the ICO/CUR file
+	} IcoDirEntry;
+
+	std::ifstream is (filePath, std::ifstream::binary);
+
+	if (is)
+	{
+		IcoHeader icoHeader = { 0 };
+		is.read(reinterpret_cast<char*>(&icoHeader), sizeof(IcoHeader));
+
+		m_count = icoHeader.imageCount;
+		m_images.reserve(m_count);
+		std::vector<IcoDirEntry> icoDirEntries(m_count);
+
+		for (int i = 0; i < icoHeader.imageCount; i++)
+		{
+			is.read(reinterpret_cast<char*>(&icoDirEntries[i]), sizeof(IcoDirEntry));
+		}
+
+		for (int i = 0; i < icoHeader.imageCount; i++)
+		{
+			std::vector<unsigned char> icoData(icoDirEntries[i].size);
+			is.read(reinterpret_cast<char*>(icoData.data()), icoDirEntries[i].size);
+
+			int channels = 0;
+			m_images.push_back(GLFWimage());
+			m_images[i].pixels = stbi_load_from_memory(icoData.data(), icoDirEntries[i].size, &m_images[i].width, &m_images[i].height, &channels, 4);
+		}
+		is.close();
+	}
+	else
+	{
+		std::cout << "Could not load .ico file." << std::endl;
+	}
 }

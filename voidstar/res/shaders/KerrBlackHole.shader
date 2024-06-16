@@ -814,7 +814,9 @@ void BSDiskIntersectionPoint(mat2x4 previousxp, mat2x4 xp, out mat2x4 diskInters
     {
         for (int j = 0; j < BS_attempts; j++)
         {
+#if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
             localFSAL = FSAL;
+#endif
             midpoint = (leftEndpoint + rightEndpoint) / 2.0;
 #if (ODE_SOLVER == 0)
             xptest = integrationStep(previousxp, midpoint);
@@ -824,6 +826,7 @@ void BSDiskIntersectionPoint(mat2x4 previousxp, mat2x4 xp, out mat2x4 diskInters
             //RK23integrationStep(previousxp, xptest, xptest2, midpoint);
             RK23integrationStepFSAL(previousxp, xptest, xptest2, midpoint, localFSAL);
 #elif (ODE_SOLVER == 3)
+            //RK23integrationStepFSAL(previousxp, xptest, xptest2, midpoint, localFSAL);
             //RK45integrationStep(previousxp, xptest, xptest2, midpoint);
             //RK45integrationStepFSAL(previousxp, xptest, xptest2, midpoint, localFSAL);
             xptest = RK4integrationStep(previousxp, midpoint);
@@ -868,7 +871,9 @@ void BSSphereIntersectionPoint(mat2x4 xp, out mat2x4 sphereIntersectionPoint, fl
 #endif
     for (int j = 0; j < BS_attempts; j++)
     {
+#if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
         localFSAL = FSAL;
+#endif
         midpoint = (leftEndpoint + rightEndpoint) / 2.0;
 #if (ODE_SOLVER == 0)
         xptest = integrationStep(xp, midpoint);
@@ -1054,7 +1059,7 @@ float observedTemperature(float r, float a, float blueshift)
 
     // This r-mapping is a hack to make the disc look nice when the disk's inner radius is set to be smaller than the ISCO.
     // Of course this has no basis in reality.
-    //r = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
+    r = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
 
     return blueshift * u_Tmax * pow(f(r, a) * r_max / (r * f(r_max, a)), 1.0 / 4.0);
 }
@@ -1080,17 +1085,26 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
         // The minus sign in front of the time term is just to make the later dot product work out.  The ray of light
         // is moving toward the disk because we're tracing backwards, so we need to swap the sign on either
         // the light momentum or the disk velocity, so we just do it here for simplicity.
+#ifdef INSIDE_HORIZON
+        vec4 diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+#else
         vec4 diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+#endif
 #ifdef CLASSICAL
         // HACK
         float brightnessFromVel = 1.0;
         float temperature = observedTemperature(r, a, brightnessFromVel);
 #else
         // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
-        float blueshift = pow(dot(diskIntersectionPoint[1], diskVel), -u_brightnessFromDiskVel);
+        // Note that we actually want to compute the sum dx_i/dt dy^i/dt, where x is the light position and y is the
+        // disk particle position.  We are using momentum coordinates for the light, so we'd need to multiply by the
+        // inverse metric to get dx^i/dt = g^ij * p_j.  But then in the metric dot product, we'd multiply by g_ij again:
+        // metricdot(dx^i/dt, dy^i/dt) = regulardot(g_ij dx^j/dt, dy^i/dt) = regulardot(g_ij * g^ij * p_i, dy^i/dt) = regulardot(p_i, dy^i/d)
+        float metricdot = dot(diskIntersectionPoint[1], diskVel);
+        float blueshift = pow(metricdot, -u_brightnessFromDiskVel);
         float temperature = observedTemperature(r, a, blueshift);
         //float brightnessFromVel = pow(dot(diskIntersectionPoint[1], diskVel), -u_brightnessFromDiskVel);
-        float brightnessFromVel = blueshift;
+        float brightnessFromVel = clamp(blueshift, 0.0, 10.0);
 #endif
         // 5000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
         // in a steady disk.
@@ -1176,7 +1190,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
 
     float stepSize;
 #ifdef INSIDE_HORIZON
-    stepSize = 0.01;
+    stepSize = 0.01 * dist / (10.0 * horizon);
 #else
     // Cheap, dumb stepsize heuristic
     stepSize = 0.01 + (dist - horizon) / 10.0;

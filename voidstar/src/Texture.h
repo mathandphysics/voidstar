@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <string>
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 class Texture
 {
@@ -22,10 +24,10 @@ public:
 	void Load(bool flip);
 	void Unload();
 
-	int GetWidth() { return m_Width; }
-	int GetHeight() { return m_Height; }
-	int GetNumChannels() { return m_numChannels; }
-	int GetFormat() { return m_Format; }
+	int GetWidth() const { return m_Width; }
+	int GetHeight() const { return m_Height; }
+	int GetNumChannels() const { return m_numChannels; }
+	int GetFormat() const { return m_Format; }
 	unsigned char* GetBuffer() { return m_FileBuffer; }
 private:
 	std::string m_FilePath;
@@ -77,4 +79,19 @@ private:
 	unsigned int m_RendererID = 0;
 	std::vector<std::string> m_Paths;
 	std::vector<Image> m_Images;
+};
+
+
+class ApplicationIcon
+{
+public:
+	ApplicationIcon(const std::string& filePath);
+	~ApplicationIcon();
+
+	void Load(const std::string& filePath);
+	int GetCount() const { return m_count; }
+	std::vector<GLFWimage>& GetImages() { return m_images; }
+private:
+	int m_count = 0;
+	std::vector<GLFWimage> m_images;
 };

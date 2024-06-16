@@ -24,7 +24,6 @@ BlackHole::BlackHole()
     // y=1 puts the camera slightly above the xz-plane of the accretion disk.
     Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -26.0f));
     //Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 0.0f, 0.4f));
-    SetProjectionMatrix();
 
     SetGraphicsPreset(interstellarPreset);
 }
@@ -35,6 +34,7 @@ BlackHole::~BlackHole()
 
 void BlackHole::OnUpdate()
 {
+    SetProjectionMatrix();
     float deltaTime = Application::Get().GetTimer().GetDeltaTime();
     m_diskRotationAngle -= deltaTime * m_diskRotationSpeed;
 
@@ -90,11 +90,12 @@ void BlackHole::CreateScreenQuad()
     layout.Push<float>(3);
     layout.Push<float>(2);
     SetShaderDefines();
-    m_quad.Initialize((const float*)&positions[0], 4, layout, triangles, 6, m_selectedShaderString, 
+    m_quad.Initialize((const float*)positions.data(), 4, layout, triangles, 6, m_selectedShaderString,
         "", true, m_vertexDefines, m_fragmentDefines);
     //m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(60.0f) / 2.0f)));
-    m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(m_FOVy) / 2.0f)));
-    m_quad.SetProjection(m_proj, false);
+    float fov = Application::Get().GetCamera().GetFOV();
+    m_quad.SetPosition(glm::vec3(0.0f, 0.0f, 1.0f / glm::tan(glm::radians(fov) / 2.0f)));
+    SetProjectionMatrix();
 }
 
 void BlackHole::LoadTextures()
@@ -183,7 +184,6 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_OuterRadius", m_diskOuterRadius);
     shader->SetUniform1f("u_BHRadius", m_radius);
     shader->SetUniform1f("u_risco", m_risco);
-    shader->SetUniform1f("u_fOfRISCO", m_fOfRISCO);
     shader->SetUniform1f("u_BHMass", m_mass);
     shader->SetUniform1f("u_a", m_a);
     shader->SetUniform1f("u_Tmax", m_Tmax);
@@ -344,15 +344,18 @@ float BlackHole::CalculateDrawDistance()
         if (horizonTest != m_insideHorizon)
         {
             m_insideHorizon = horizonTest;
-            if (m_insideHorizon == true)
+            if (m_shaderSelector == 0)
             {
-                m_tolerance = 0.00005f;
-                m_maxSteps = 40;
-            }
-            else
-            {
-                m_tolerance = 0.01f;
-                m_maxSteps = 200;
+                if (m_insideHorizon == true)
+                {
+                    m_tolerance = 0.01f;
+                    m_maxSteps = 70;
+                }
+                else
+                {
+                    m_tolerance = 0.01f;
+                    m_maxSteps = 200;
+                }
             }
             SetShaderDefines();
         }
@@ -383,34 +386,6 @@ void BlackHole::CalculateISCO()
     float z1 = 1.0f + std::powf(1.0f - chi*chi, 1.0f/3.0f) * (std::powf(1.0f + chi, 1.0f/3.0f) + std::powf(1.0f - chi, 1.0f/3.0f));
     float z2 = std::powf(3.0f*chi*chi + z1*z1, 1.0f / 2.0f);
     m_risco = m_mass * (3.0f + z2 - std::powf((3.0f-z1)*(3.0f+z1+2.0f*z2), 1.0f / 2.0f));
-
-    // Now calculate f(risco)
-    // Uses the black hole's mass and spin, along with a point on the equatorial accretion disk that's r away from the
-    // center of the black hole, to calculate f, a function used in the time-averaged flux of radiant energy
-    // from "Disk-accretion onto a black hole" by Page and Thorne (1973)
-    float astar = m_a / m_mass;
-    float x = sqrt((49.0f / 36.0f) * m_risco / m_mass);
-    float x0 = sqrt(m_risco / m_mass);
-    float pi = 3.141592653589793f;
-    // x1, x2, x3 are the roots of x^3 - 3*x + 2*astar = 0.
-    float x1 = 2.0f * cosf((1.0f / 3.0f) * acosf(astar) - pi / 3.0f);
-    float x2 = 2.0f * cosf((1.0f / 3.0f) * acosf(astar) + pi / 3.0f);
-    float x3 = -2.0f * cosf((1.0f / 3.0f) * acosf(astar));
-    float x1numer = 3.0f * (x1 - astar) * (x1 - astar);
-    float x1denom = x1 * (x1 - x2) * (x1 - x3);
-    float x2numer = 3.0f * (x2 - astar) * (x2 - astar);
-    float x2denom = x2 * (x2 - x1) * (x2 - x3);
-    float x3numer = 3.0f * (x3 - astar) * (x3 - astar);
-    float x3denom = x3 * (x3 - x1) * (x3 - x2);
-    float xdenom = x * x * (x * x * x - 3.0f * x + 2.0f * astar);
-    float logx0 = logf(x / x0);
-    float logx1 = logf((x - x1) / (x0 - x1));
-    float logx2 = logf((x - x2) / (x0 - x2));
-    float logx3 = logf((x - x3) / (x0 - x3));
-    m_fOfRISCO = (3.0f / (2.0f * m_mass)) * (1.0f / xdenom) * (x - x0 - (3.0f * astar / 2.0f) * logx0
-        - (x1numer / x1denom) * logx1 - (x2numer / x2denom) * logx2
-        - (x3numer / x3denom) * logx3);
-
 }
 
 void BlackHole::OnImGuiRender()
@@ -733,10 +708,8 @@ void BlackHole::OnResize()
 
 void BlackHole::SetProjectionMatrix()
 {
-    int width, height;
-    glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
-    m_proj = glm::perspective(glm::radians(m_FOVy), (float)width / (float)height, 0.1f, 1.0f);
-    m_quad.SetProjection(m_proj, false);
+    glm::mat4 camera_proj = Application::Get().GetCamera().GetProj();
+    m_quad.SetProjection(camera_proj, false);
 }
 
 void BlackHole::SetGraphicsPreset(const graphicsPreset &preset)

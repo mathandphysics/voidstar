@@ -65,7 +65,6 @@ private:
 	float m_mass = 1.0f;
 	float m_radius = 2.0f * m_mass;
 	float m_risco;
-	float m_fOfRISCO;
 	float m_diskInnerRadius = 2.25f * m_radius;
 	float m_diskOuterRadius = 9.0f * m_radius;
 	float m_a = 0.6f;
@@ -147,8 +146,5 @@ private:
 	unsigned int m_sphereTextureSlot = 2;
 	unsigned int m_skyboxTextureSlot = 3;
 	unsigned int m_screenTextureSlot = 0;
-
-	float m_FOVy = 60.0f; // in degrees
-	glm::mat4 m_proj;
 };
 

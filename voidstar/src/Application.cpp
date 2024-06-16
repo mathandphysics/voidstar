@@ -3,9 +3,10 @@
 #include "Camera.h"
 
 Application::Application()
-	: m_Window(m_fullScreen, m_Vsync)
+	: m_Window(m_fullScreen, m_Vsync), m_icon(m_iconPath)
 {
 	ResetCameraMousePos();
+	SetIcon();
 }
 
 Application::~Application()
@@ -91,6 +92,7 @@ void Application::OnResize(int width, int height)
 	glViewport(0, 0, vp_width, vp_height);
 	if (width * height > 0)
 	{
+		m_Camera.SetProj();
 		m_SceneManager.OnResize();
 	}
 }
@@ -126,6 +128,10 @@ void Application::ImGuiPrintRenderStats()
 	
 }
 
+void Application::SetIcon()
+{
+	glfwSetWindowIcon(m_Window.GetWindow(), m_icon.GetCount(), m_icon.GetImages().data());
+}
 
 void Application::SetScreenshotTaken(const std::string& fileName)
 {

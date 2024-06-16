@@ -46,13 +46,17 @@ void Camera::OnImGuiRender()
 
 void Camera::CameraGUI()
 {
-	if (ImGui::SliderFloat("Mouse Speed", &m_UserDefinedMouseSpeed, 0.1f, 1.0f))
+	if (ImGui::SliderFloat("##Mouse Speed", &m_UserDefinedMouseSpeed, 0.1f, 1.0f, "Mouse Speed = %.2f"))
 	{
 		SetUserMouseSpeed();
 	}
-	if (ImGui::SliderFloat("Movement Speed", &m_UserDefinedMovementSpeed, 0.1f, 1.0f))
+	if (ImGui::SliderFloat("##Movement Speed", &m_UserDefinedMovementSpeed, 0.1f, 1.0f, "Movement Speed = %.2f"))
 	{
 		SetUserMovementSpeed();
+	}
+	if (ImGui::SliderFloat("##FOV", &m_FOV, 20.0f, 120.0f, "FOV = %.1f"))
+	{
+		SetProj();
 	}
 	if (ImGui::Checkbox("Invert Camera Y-Axis", &m_InvertedY))
 	{
@@ -100,6 +104,13 @@ void Camera::Reset()
 void Camera::SetCameraPos(glm::vec3 pos)
 {
 	m_cameraPos = pos;
+}
+
+void Camera::SetProj()
+{
+	int width, height;
+	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
+	m_Proj = glm::perspective(glm::radians(m_FOV), (float)width / (float)height, 0.1f, 1000.0f);
 }
 
 void Camera::TogglePause()

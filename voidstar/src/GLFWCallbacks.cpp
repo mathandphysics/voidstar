@@ -92,7 +92,7 @@ void Screenshot()
 	int nSize = w * h * 3;
 	std::vector<char> dataBuffer(nSize);
 
-	GLCall(glReadPixels((GLint)0, (GLint)0, (GLint)w, (GLint)h, GL_RGB, GL_UNSIGNED_BYTE, &dataBuffer[0]));
+	GLCall(glReadPixels((GLint)0, (GLint)0, (GLint)w, (GLint)h, GL_RGB, GL_UNSIGNED_BYTE, dataBuffer.data()));
 
 	stbi_flip_vertically_on_write(1);
 	stbi_write_png(outFileName.c_str(), w, h, 3, dataBuffer.data(), w * 3);

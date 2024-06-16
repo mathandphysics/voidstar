@@ -38,6 +38,7 @@ public:
 
 	void ResetCameraMousePos();
 	void ImGuiPrintRenderStats();
+	void SetIcon();
 	void SetScreenshotTaken(const std::string& fileName);
 
 	void LoadBlackHole();
@@ -63,5 +64,8 @@ private:
 	Timer m_CPUTimer;
 	Timer m_GPUTimer;
 
-	ScreenshotOverlay m_screenshotOverlay;	
+	ScreenshotOverlay m_screenshotOverlay;
+
+	std::string m_iconPath = "res/icon/voidstar.ico";
+	ApplicationIcon m_icon;
 };

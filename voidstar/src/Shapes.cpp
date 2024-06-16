@@ -174,7 +174,7 @@ void Cube::GenerateGeometry(const std::string& shaderPath)
     layout.Push<float>(2);
     layout.Push<float>(1);
 
-    Mesh::Initialize((const float*) & vertVec[0], 24, layout, indices, 36, shaderPath);
+    Mesh::Initialize((const float*) vertVec.data(), 24, layout, indices, 36, shaderPath);
 }
 
 
@@ -315,6 +315,6 @@ void Sphere::GenerateGeometry(const std::string& shaderPath)
     layout.Push<float>(2);
     layout.Push<float>(1);
 
-    Mesh::Initialize((const float*)&vertVec[0], nVerts, layout,
-        (const unsigned int*)&m_Indices[0], nInds, shaderPath);
+    Mesh::Initialize((const float*)vertVec.data(), nVerts, layout,
+        (const unsigned int*)m_Indices.data(), nInds, shaderPath);
 }

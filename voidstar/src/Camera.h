@@ -16,18 +16,20 @@ class Camera
 		void CameraGUI();
 		void DebugGUI();
 
-		glm::vec3 GetPosition() { return m_cameraPos; }
+		glm::vec3 GetPosition() const { return m_cameraPos; }
 		glm::mat4 GetView();
-		glm::mat4 GetProj() { return m_Proj; }
+		glm::mat4 GetProj() const { return m_Proj; }
 		glm::mat4 GetSkyboxView();
 		void Reset();
 
 		void SetCameraPos(glm::vec3 pos);
+		void SetProj();
 		void TogglePause();
 		void ToggleEulerAngles();
 
 		void SetUserMouseSpeed();
 		void SetUserMovementSpeed();
+		float GetFOV() const { return m_FOV; }
 
 		void TurnOnEuler();
 		void TurnOffEuler();
@@ -66,6 +68,7 @@ class Camera
 		glm::vec3 m_Right = m_cameraRot * m_originalRight;
 		glm::vec3 m_EulerAngles = glm::vec3(0.0f, 0.0f, 0.0f);
 		glm::mat4 m_View = glm::lookAt(m_cameraPos, m_cameraPos + m_Look, m_Up);
-		glm::mat4 m_Proj = glm::perspective(glm::radians(60.0f), 16.0f / 9.0f, 0.1f, 1000.0f);
+		float m_FOV = 60.0f; // in degrees
+		glm::mat4 m_Proj = glm::perspective(glm::radians(m_FOV), 16.0f / 9.0f, 0.1f, 1000.0f);
 
 };

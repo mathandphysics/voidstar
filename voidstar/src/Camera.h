@@ -38,6 +38,7 @@ class Camera
 
 		InputHandler& GetInputHandler() { return m_InputHandler; }
 	private:
+		void BarrelRoll(float time);
 		void MouseMovementLook();
 		void CameraMove();
 		void ChangeMovementSpeed();
@@ -63,6 +64,7 @@ class Camera
 		const glm::vec3 m_originalRight = glm::vec3(-1.0f, 0.0f, 0.0f);
 		glm::vec3 m_cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 		glm::quat m_cameraRot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+		glm::quat m_originalCameraRot = m_cameraRot;
 		glm::vec3 m_Look = m_cameraRot * m_originalLook;
 		glm::vec3 m_Up = m_cameraRot * m_originalUp;
 		glm::vec3 m_Right = m_cameraRot * m_originalRight;

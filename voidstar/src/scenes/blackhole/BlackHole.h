@@ -101,6 +101,7 @@ private:
 	float m_colourshiftOffset = 0.0f;
 
 	bool m_ImGuiFirstTime = true;
+	bool m_ImGuiAllowMoveableDock = true;
 
 	std::string m_flatSpacetimeShaderPath = "res/shaders/BlackHoleFlatSpacetime.shader";
 	std::string m_kerrBlackHoleShaderPath = "res/shaders/KerrBlackHole.shader";

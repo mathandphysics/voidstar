@@ -14,8 +14,6 @@ void main()
 #shader fragment
 #version 460 core
 
-out vec4 colour;
-
 in vec2 TexCoords;
 
 uniform sampler2D diskTexture;
@@ -242,57 +240,24 @@ float implicitr(vec4 x)
     return sqrt(r2);
 }
 
+mat4 metric(vec4 x)
+{
+    // Calculate the Kerr metric in Kerr-Schild coordinates at the position x.  G = c = 1.  Signature (-+++).
+    // This differs slightly from the definition in https://arxiv.org/abs/0706.0622
+    // because that paper has Cartesian z as the up direction, while this program has Cartesian y
+    // as the up direction.
+    vec3 p = x.yzw;
+    float r = implicitr(x);
+    float r2 = r*r;
+    float a2 = u_a*u_a;
+    float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
 #ifdef INSIDE_HORIZON
-mat4 metric(vec4 x)
-{
-    // Calculate the Kerr metric in outgoing Kerr-Schild coordinates at the position x.  G = c = 1.  Signature (-+++).
-    // This differs slightly from the definition in https://arxiv.org/abs/0706.0622
-    // because that paper has Cartesian z as the up direction, while this program has Cartesian y
-    // as the up direction.
-    vec3 p = x.yzw;
-    float r = implicitr(x);
-    float r2 = r * r;
-    float a2 = u_a * u_a;
-    float f = 2.0 * u_BHMass * r2 * r / (r2 * r2 + a2 * p.y * p.y);
+    // Outgoing Kerr-Schild coordinates.
     vec4 l = vec4(-1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
-    return diag(vec4(-1.0, 1.0, 1.0, 1.0)) + f * outerProduct(l, l);
-}
-
-mat4 invmetric(vec4 x)
-{
-    // Generic inverse metric:
-    //return inverse(metric(x));
-
-    // For general Kerr-Schild form decompositions, we can use
-    // https://en.wikipedia.org/wiki/Sherman%E2%80%93Morrison_formula.
-    // In this specific case of the Kerr metric though, we have a formula for the inverse that has identical
-    // cost to the metric.
-
-    // Calculate the inverse Kerr metric in outgoing Kerr-Schild coordinates at the position x.  G = c = 1. Signature (-+++).
-    // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
-    // Due to the convenient decomposition of these coordinates, this has pretty much identical computational cost as
-    // the metric.
-    vec3 p = x.yzw;
-    float r = implicitr(x);
-    float r2 = r * r;
-    float a2 = u_a * u_a;
-    float f = 2.0 * u_BHMass * r2 * r / (r2 * r2 + a2 * p.y * p.y);
-    vec4 l = vec4(1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
-    return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * outerProduct(l, l);
-}
 #else
-mat4 metric(vec4 x)
-{
-    // Calculate the Kerr metric in ingoing Kerr-Schild coordinates at the position x.  G = c = 1.  Signature (-+++).
-    // This differs slightly from the definition in https://arxiv.org/abs/0706.0622
-    // because that paper has Cartesian z as the up direction, while this program has Cartesian y
-    // as the up direction.
-    vec3 p = x.yzw;
-    float r = implicitr(x);
-    float r2 = r*r;
-    float a2 = u_a*u_a;
-    float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
+    // Ingoing Kerr-Schild coordinates.
     vec4 l = vec4(1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+#endif
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) + f * outerProduct(l, l);
 }
 
@@ -306,7 +271,7 @@ mat4 invmetric(vec4 x)
     // In this specific case of the Kerr metric though, we have a formula for the inverse that has identical
     // cost to the metric.
 
-    // Calculate the inverse Kerr metric in ingoing Kerr-Schild coordinates at the position x.  G = c = 1. Signature (-+++).
+    // Calculate the inverse Kerr metric in Kerr-Schild coordinates at the position x.  G = c = 1. Signature (-+++).
     // As with the metric, this is also from https://arxiv.org/abs/0706.0622 with adjusted coordinates.
     // Due to the convenient decomposition of these coordinates, this has pretty much identical computational cost as
     // the metric.
@@ -315,10 +280,15 @@ mat4 invmetric(vec4 x)
     float r2 = r*r;
     float a2 = u_a*u_a;
     float f = 2.0 * u_BHMass * r2*r / (r2*r2 + a2*p.y*p.y);
+#ifdef INSIDE_HORIZON
+    // Outgoing Kerr-Schild coordinates.
+    vec4 l = vec4(1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+#else
+    // Ingoing Kerr-Schild coordinates.
     vec4 l = vec4(-1.0, (r * p.x - u_a * p.z) / (r2 + a2), p.y / r, (r * p.z + u_a * p.x) / (r2 + a2));
+#endif
     return diag(vec4(-1.0, 1.0, 1.0, 1.0)) - f * outerProduct(l, l);
 }
-#endif
 #endif
 
 #ifdef MINKOWSKI
@@ -575,7 +545,9 @@ mat2x4 integrationStep(mat2x4 xp, float dl)
 #if (ODE_SOLVER == 1 || ODE_SOLVER == 3)
 mat2x4 RK4integrationStep(mat2x4 xp, float dl)
 {
-    // Classic Runge-Kutta 4.  Note that the differential equations here don't explicitly depend on the 
+    // Classic Runge-Kutta 4.
+    // https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods#Examples
+    // Note that the differential equations here don't explicitly depend on the 
     // affine parameter.  i.e. instead of dy/dt = f(t, y), we just have dy/dt = f(y).
     // So the vector field f is stationary in time.  This simplifies the xpupdate function.
     // Here y is the vector of (x, p) and f is the vector of (dH/dp, -dH/dx).
@@ -957,7 +929,8 @@ vec3 sampleDiskTexture(vec3 p)
     float disk_divisions = 5.0;
 
     float u = (atan(p.x, p.z) + pi) / (2.0 * pi) - u_diskRotationAngle;
-    u = u - floor(u); // equivalent to fract(u) since we want u to be between 0 and 1.
+    //u = fract(u);
+    u = u - floor(u);
     float v = clamp(1.0 - (length(vec2(p.x, p.z)) - u_InnerRadius) / (u_OuterRadius - u_InnerRadius), 0.0, 1.0);
 
     if (u_useDebugDiskTexture)
@@ -998,14 +971,16 @@ vec3 sampleDiskTexture(vec3 p)
         float amplitude = 0.6;
         float n = multifractal_noise(xyz, octaves, amplitude, lacunarity, dimension);
         //float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
-        float radialDimming = clamp(100.0 * pow(rho, -2.5), 0.0, 1.0);
-        col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n);
-        //col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n) * radialDimming;
+        //float radialDimming = clamp(100.0 * pow(rho, -2.5), 0.0, 1.0);
+        float radialDimming = clamp(500.0 * pow(rho, -2.5), 0.0, 1.0);
+        //col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n);
+        col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n) * radialDimming;
     }
     return col;
 }
 
 vec3 TemperatureToRGB(const in float temperature) {
+    // TODO: replace this the procedure described in this: https://scipython.com/blog/converting-a-spectrum-to-a-colour/?
     // https://www.shadertoy.com/view/4sc3D7
     // Converts a blackbody temperature to colour in RGB.
     // Valid from 1000 to 40000 K (and additionally 0 for pure full white)
@@ -1058,7 +1033,7 @@ float observedTemperature(float r, float a, float blueshift)
     float r_max = (49.0 / 36.0) * u_risco;
 
     // This r-mapping is a hack to make the disc look nice when the disk's inner radius is set to be smaller than the ISCO.
-    // Of course this has no basis in reality.
+    // Of course, this has no basis in reality.
     r = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
 
     return blueshift * u_Tmax * pow(f(r, a) * r_max / (r * f(r_max, a)), 1.0 / 4.0);
@@ -1096,15 +1071,16 @@ void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float
         float temperature = observedTemperature(r, a, brightnessFromVel);
 #else
         // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
-        // Note that we actually want to compute the sum dx_i/dt dy^i/dt, where x is the light position and y is the
+        // Note that we actually want to compute the sum dx_i/dt * dy^i/dt, where x is the light position and y is the
         // disk particle position.  We are using momentum coordinates for the light, so we'd need to multiply by the
         // inverse metric to get dx^i/dt = g^ij * p_j.  But then in the metric dot product, we'd multiply by g_ij again:
         // metricdot(dx^i/dt, dy^i/dt) = regulardot(g_ij dx^j/dt, dy^i/dt) = regulardot(g_ij * g^ij * p_i, dy^i/dt) = regulardot(p_i, dy^i/d)
-        float metricdot = dot(diskIntersectionPoint[1], diskVel);
-        float blueshift = pow(metricdot, -u_brightnessFromDiskVel);
+        // g is the energy shift
+        float g = 1.0 / dot(diskIntersectionPoint[1], diskVel);
+        float blueshift = pow(g, u_brightnessFromDiskVel);
         float temperature = observedTemperature(r, a, blueshift);
         //float brightnessFromVel = pow(dot(diskIntersectionPoint[1], diskVel), -u_brightnessFromDiskVel);
-        float brightnessFromVel = clamp(blueshift, 0.0, 10.0);
+        float brightnessFromVel = clamp(blueshift*g, 0.0, 10.0);
 #endif
         // 5000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
         // in a steady disk.
@@ -1156,7 +1132,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
 
     // x and p are the spacetime position and momentum coordinates.
     // p_i = g_ij * dx^j/dlambda
-    // Set x_t = 0 and dx^0/dlambda = 1.
+    // Set x_t = 0.  Set dx^0/dlambda = 1 for ingoing coordinates and -1 for outgoing coordinates.
     mat2x4 xp;
     xp[0] = vec4(0.0, cameraPos);
     mat2x4 previousxp;
@@ -1168,8 +1144,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     }
     else
     {
-        // Inside the event horizon, we need to change metric to outgoing coordinates.  We adjust p accordingly.
-        //xp[1] = metric(xp[0]) * vec4(-1.0, -rayDir);
+        // Inside the event horizon, we need to change the metric to outgoing coordinates.  We adjust p accordingly.
         xp[1] = metric(xp[0]) * vec4(-1.0, rayDir);
     }
 
@@ -1221,7 +1196,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
 
         // Check if the ray hit the disk
         // Check to see whether the Cartesian y-coordinate changed signs, i.e. if the ray crossed the disk's plane.
-        // CAUTION: if the stepsize is too big (e.g. for RK45), then it's possible for a ray to cross the xz-plane
+        // CAUTION: when the stepsize is too big (e.g. for RK45), then it's possible for a ray to cross the xz-plane
         // and then cross back over to the previous side all within a single step.  This can lead to a jagged edge
         // at the inner edge of the accretion disk.  Decreasing tolerance (i.e. forcing a smaller stepsize) fixes this.
         if (xp[0][2] * previousxp[0][2] < 0.0)
@@ -1301,15 +1276,15 @@ void main()
 
             // https://sibaku.github.io/computer-graphics/2017/01/10/Camera-Ray-Generation.html
             // The image "screen" we're casting through in view space.
-            // the z=1.0 value here gives us a point on the far-plane of the view frustrum, but we could've chosen
-            // any value.  The w=1.0 value makes the point homogeneous without scaling the vector.
+            // the z=0.0 value here gives us a point in the view frustrum, but we could've chosen
+            // any value <=1.0.  The w=1.0 value makes the point homogeneous without scaling the vector.
             // Then we undo the projection matrix to get to view space.
-            vec4 screen = u_ProjInv * vec4(uv, 1.0, 1.0);
+            vec4 screen = u_ProjInv * vec4(uv, 0.0, 1.0);
             // We're now in view space, where the camera is at the origin by definition.
-            // Convert screen from a point to a direction.
+            // Convert screen from a point to a direction in projective space.
             screen.xyz /= screen.w;
             screen.w = 0.0;
-            // ViewInv * screen takes the direction to world space.  Then normalize.
+            // ViewInv * screen takes the direction to world space.  Then normalize for our final unit length ray direction.
             vec3 rayDir = normalize((u_ViewInv * screen).xyz);
 
             // For simplicity, the BH and disk are centered at (0,0,0).  The disk is in the xz-plane at y=0.

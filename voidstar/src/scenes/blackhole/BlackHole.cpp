@@ -393,10 +393,7 @@ void BlackHole::OnImGuiRender()
 {
     ImGuiSetUpDocking();
 
-    ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;
-    imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing;
-    imgui_window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    imgui_window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+    ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoCollapse;
     ImGui::Begin("Black Hole Controls", nullptr, imgui_window_flags);
     ImGui::PushItemWidth(-FLT_MIN);
     ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
@@ -460,9 +457,11 @@ void BlackHole::OnImGuiRender()
 
 void BlackHole::ImGuiSetUpDocking()
 {
-    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-    dockspace_flags |= ImGuiDockNodeFlags_NoUndocking;
-    dockspace_flags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoCloseButton;
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_HiddenTabBar;
+    if (!m_ImGuiAllowMoveableDock)
+    {
+        dockspace_flags |= ImGuiDockNodeFlags_NoUndocking | ImGuiDockNodeFlags_NoTabBar;
+    }
     ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), dockspace_flags);
 
     if (m_ImGuiFirstTime)

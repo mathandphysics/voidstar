@@ -2,6 +2,7 @@
 
 #include "Application.h"
 #include <cmath>
+#include "imgui_internal.h"
 
 
 
@@ -390,22 +391,12 @@ void BlackHole::CalculateISCO()
 
 void BlackHole::OnImGuiRender()
 {
-    if (m_setImGuiPosition)
-    {
-        // Fix the controls window to the right side of the screen.
-        ImVec2 work_size = ImGui::GetWindowViewport()->WorkSize;
-        ImVec2 window_size = ImVec2(340, work_size.y);
-        ImVec2 window_pos = ImGui::GetWindowViewport()->WorkPos;
-        window_pos[0] += work_size.x - window_size[0];
-        ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
-        ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
-        m_setImGuiPosition = !m_setImGuiPosition;
-    }
+    ImGuiSetUpDocking();
 
     ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;
     imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing;
     imgui_window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus;
-    imgui_window_flags |= ImGuiWindowFlags_NoSavedSettings;
+    imgui_window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
     ImGui::Begin("Black Hole Controls", nullptr, imgui_window_flags);
     ImGui::PushItemWidth(-FLT_MIN);
     ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
@@ -465,6 +456,25 @@ void BlackHole::OnImGuiRender()
         ImGui::PopItemWidth();
     }
     ImGui::End();
+}
+
+void BlackHole::ImGuiSetUpDocking()
+{
+    ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+    dockspace_flags |= ImGuiDockNodeFlags_NoUndocking;
+    dockspace_flags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoCloseButton;
+    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), dockspace_flags);
+
+    if (m_ImGuiFirstTime)
+    {
+        m_ImGuiFirstTime = false;
+        ImGui::DockBuilderRemoveNode(dockspace_id); // clear any previous layout
+        ImGui::DockBuilderAddNode(dockspace_id, dockspace_flags | ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
+        auto dock_id_right = ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Right, 0.25f, nullptr, &dockspace_id);
+        ImGui::DockBuilderDockWindow("Black Hole Controls", dock_id_right);
+    }
+
 }
 
 void BlackHole::ImGuiRenderStats()
@@ -703,7 +713,7 @@ void BlackHole::OnResize()
 {
     CreateFBOs();
     SetProjectionMatrix();
-    m_setImGuiPosition = true;
+    m_ImGuiFirstTime = true;
 }
 
 void BlackHole::SetProjectionMatrix()

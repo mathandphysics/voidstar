@@ -222,7 +222,7 @@ ApplicationIcon::~ApplicationIcon()
 		{
 			free(im.pixels);
 		}
-		im.pixels = NULL;
+		im.pixels = nullptr;
 	}
 }
 
@@ -252,12 +252,12 @@ void ApplicationIcon::Load(const std::string& filePath)
 		unsigned int offset;        // Specifies the offset of BMP or PNG data from the beginning of the ICO/CUR file
 	} IcoDirEntry;
 
-	std::ifstream is (filePath, std::ifstream::binary);
+	std::ifstream file (filePath, std::ifstream::binary);
 
-	if (is)
+	if (file.is_open())
 	{
 		IcoHeader icoHeader = { 0 };
-		is.read(reinterpret_cast<char*>(&icoHeader), sizeof(IcoHeader));
+		file.read(reinterpret_cast<char*>(&icoHeader), sizeof(IcoHeader));
 
 		m_count = icoHeader.imageCount;
 		m_images.reserve(m_count);
@@ -265,19 +265,19 @@ void ApplicationIcon::Load(const std::string& filePath)
 
 		for (int i = 0; i < icoHeader.imageCount; i++)
 		{
-			is.read(reinterpret_cast<char*>(&icoDirEntries[i]), sizeof(IcoDirEntry));
+			file.read(reinterpret_cast<char*>(&icoDirEntries[i]), sizeof(IcoDirEntry));
 		}
 
 		for (int i = 0; i < icoHeader.imageCount; i++)
 		{
 			std::vector<unsigned char> icoData(icoDirEntries[i].size);
-			is.read(reinterpret_cast<char*>(icoData.data()), icoDirEntries[i].size);
+			file.read(reinterpret_cast<char*>(icoData.data()), icoDirEntries[i].size);
 
 			int channels = 0;
 			m_images.push_back(GLFWimage());
 			m_images[i].pixels = stbi_load_from_memory(icoData.data(), icoDirEntries[i].size, &m_images[i].width, &m_images[i].height, &channels, 4);
 		}
-		is.close();
+		file.close();
 	}
 	else
 	{

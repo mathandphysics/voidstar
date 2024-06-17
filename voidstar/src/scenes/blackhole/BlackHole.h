@@ -47,6 +47,7 @@ public:
 	void CalculateISCO();
 
 	void OnImGuiRender();
+	void ImGuiSetUpDocking();
 	void ImGuiRenderStats();
 	void ImGuiChooseBH();
 	void ImGuiBHProperties();
@@ -99,7 +100,7 @@ private:
 	float m_colourshiftMultiplier = 4400.0f;
 	float m_colourshiftOffset = 0.0f;
 
-	bool m_setImGuiPosition = true;
+	bool m_ImGuiFirstTime = true;
 
 	std::string m_flatSpacetimeShaderPath = "res/shaders/BlackHoleFlatSpacetime.shader";
 	std::string m_kerrBlackHoleShaderPath = "res/shaders/KerrBlackHole.shader";

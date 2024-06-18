@@ -26,7 +26,7 @@ void Camera::OnUpdate()
 
 void Camera::OnImGuiRender()
 {
-		ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;// | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+		ImGuiWindowFlags imgui_window_flags = ImGuiWindowFlags_NoCollapse;
 		imgui_window_flags |= ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing;
 		ImGui::Begin("Camera Controls", NULL, imgui_window_flags);
 		CameraGUI();
@@ -155,69 +155,81 @@ void Camera::SetUserMovementSpeed()
 	m_MovementSpeed = m_UserDefinedMovementSpeed * m_defaultMovementSpeed;
 }
 
+glm::quat Camera::RotationFromEuler(glm::vec3 eulerAngles)
+{
+	// Euler angles are all calculated from the original Look, Up, and Right.  Multiply the return value of this function
+	// on the right so that the order of application is vec * XRot * YRot * ZRot, i.e. the x rotation is applied first.
+	glm::quat XRot = glm::angleAxis(-eulerAngles.x, m_originalRight);
+	glm::quat YRot = glm::angleAxis(-eulerAngles.y, m_originalUp);
+	glm::quat ZRot = glm::angleAxis(-eulerAngles.z, m_originalLook);
+	return glm::normalize(XRot * YRot * ZRot);
+}
+
 void Camera::TurnOnEuler()
 {
 	m_Up = m_originalUp;
 	// Make sure m_Look is normalized before we find theta and phi.
 	m_Look = glm::normalize(m_Look);
-	float phi = glm::asin(m_Look.y);
-	float theta = glm::atan(m_Look.x, m_Look.z);
-	m_EulerAngles = glm::vec3(phi, theta, 0.0f);
-	m_Look = glm::vec3(glm::sin(m_EulerAngles.y) * glm::cos(m_EulerAngles.x),
-		glm::sin(m_EulerAngles.x),
-		glm::cos(m_EulerAngles.y) * glm::cos(m_EulerAngles.x));
+	float pitch = glm::asin(m_Look.y);
+	float yaw = glm::atan(m_Look.x, m_Look.z);
+
+	// Restrict the pitch axis in order to prevent gimbal lock.
+	constexpr float max_angle = (89.0f / 90.0f) * (glm::pi<float>() / 2.0f);  // 89 degrees in radians
+	if (pitch > max_angle || pitch < -max_angle)
+	{
+		pitch = max_angle * glm::sign(pitch);
+	}
+
+	// We can't use a roll angle because we are forcing up to be fixed.
+	m_EulerAngles = glm::vec3(pitch, yaw, 0.0f);
+	m_Look = m_originalLook * RotationFromEuler(m_EulerAngles);
 	m_Up = m_originalUp;
-	m_Right = glm::normalize(glm::cross(m_Look, m_Up));
+	m_Right = glm::cross(m_Look, m_Up);
 }
 
 void Camera::TurnOffEuler()
 {
-		glm::quat XRot = glm::angleAxis(m_EulerAngles.x, glm::vec3(1.0, 0.0, 0.0));
-		glm::quat YRot = glm::angleAxis(-m_EulerAngles.y, glm::vec3(0.0, 1.0, 0.0));
-		glm::quat ZRot = glm::angleAxis(m_EulerAngles.z, glm::vec3(0.0, 0.0, 1.0));
-		m_cameraRot = glm::normalize(XRot * YRot * ZRot);
-		m_Look = glm::normalize(m_originalLook * m_cameraRot);
-		m_Up = glm::normalize(m_originalUp * m_cameraRot);
-		m_Right = glm::normalize(m_originalRight * m_cameraRot);
+		m_cameraRot = RotationFromEuler(m_EulerAngles);
+		m_Look = m_originalLook * m_cameraRot;
+		m_Up = m_originalUp * m_cameraRot;
+		m_Right = m_originalRight * m_cameraRot;
 }
 
-void Camera::UpdateEuler(float upRotAngle, float rightRotAngle)
+void Camera::UpdateEuler(float yaw, float pitch)
 {
 	constexpr float max_angle = (89.0f / 90.0f) * (glm::pi<float>() / 2.0f);  // 89 degrees in radians
 
 	// Restrict the pitch axis in order to prevent gimbal lock.
-	if ((m_EulerAngles.x + rightRotAngle) < max_angle && (m_EulerAngles.x + rightRotAngle) > -max_angle)
+	if ((m_EulerAngles.x + pitch) < max_angle && (m_EulerAngles.x + pitch) > -max_angle)
 	{
-		m_EulerAngles.x += rightRotAngle;
+		m_EulerAngles.x += pitch;
 	}
 	else
 	{
 		m_EulerAngles.x = max_angle * glm::sign(m_EulerAngles.x);
 	}
-	m_EulerAngles.y += upRotAngle;
+	m_EulerAngles.y += yaw;
 
-	m_Look = glm::normalize(glm::vec3(glm::sin(m_EulerAngles.y) * glm::cos(m_EulerAngles.x),
-		glm::sin(m_EulerAngles.x),
-		glm::cos(m_EulerAngles.y) * glm::cos(m_EulerAngles.x)));
+	m_Look = m_originalLook * RotationFromEuler(m_EulerAngles);
 	m_Up = m_Up;
-	m_Right = glm::normalize(glm::cross(m_Look, m_Up));
+	m_Right = glm::cross(m_Look, m_Up);
 }
 
-void Camera::UpdateNonEuler(float upRotAngle, float rightRotAngle)
+void Camera::UpdateNonEuler(float yaw, float pitch)
 {
-	m_cameraRot = m_cameraRot * glm::angleAxis(-rightRotAngle, m_Right);
-	m_cameraRot = m_cameraRot * glm::angleAxis(-upRotAngle, glm::cross(m_Right, m_Look));
+	m_cameraRot = m_cameraRot * glm::angleAxis(-yaw, glm::cross(m_Right, m_Look));
+	m_cameraRot = m_cameraRot * glm::angleAxis(-pitch, m_Right);
 	m_cameraRot = glm::normalize(m_cameraRot);
-	m_Up = glm::normalize(m_originalUp * m_cameraRot);
-	m_Look = glm::normalize(m_originalLook * m_cameraRot);
-	m_Right = glm::normalize(m_originalRight * m_cameraRot);
+	m_Up = m_originalUp * m_cameraRot;
+	m_Look = m_originalLook * m_cameraRot;
+	m_Right = m_originalRight * m_cameraRot;
 }
 
-void Camera::BarrelRoll(float time)
+void Camera::BarrelRoll(float roll)
 {
 	if (!m_UseEulerAngles)
 	{
-		m_cameraRot = m_cameraRot * glm::normalize(glm::angleAxis(time, m_Look));
+		m_cameraRot = m_cameraRot * glm::angleAxis(-roll, m_Look);
 	}
 }
 
@@ -228,15 +240,15 @@ void Camera::MouseMovementLook()
 	double deltaY = m_InputHandler.GetMouseDeltaY();
 	m_InputHandler.SetMouseDeltaXY(0,0);
 
-	float upRotAngle = -(float)deltaX * deltaTime * m_MouseSpeed;
-	float rightRotAngle = (1 - 2 * (int)m_InvertedY) * -(float)deltaY * deltaTime * m_MouseSpeed;
+	float yaw = -(float)deltaX * deltaTime * m_MouseSpeed;
+	float pitch = (1.0f - 2.0f * (float)m_InvertedY) * -(float)deltaY * deltaTime * m_MouseSpeed;
 
 	if (m_UseEulerAngles)
 	{
-		UpdateEuler(upRotAngle, rightRotAngle);
+		UpdateEuler(yaw, pitch);
 	}
 	else {
-		UpdateNonEuler(upRotAngle, rightRotAngle);
+		UpdateNonEuler(yaw, pitch);
 	}
 }
 
@@ -255,11 +267,11 @@ void Camera::CameraMove()
 
 	if (m_InputHandler.GetKey(GLFW_KEY_Q) == 1)
 	{
-		BarrelRoll(deltaTime);
+		BarrelRoll(-deltaTime);
 	}
 	if (m_InputHandler.GetKey(GLFW_KEY_E) == 1)
 	{
-		BarrelRoll(-deltaTime);
+		BarrelRoll(deltaTime);
 	}
 
 	if (m_InputHandler.GetKey(GLFW_KEY_W) == 1)

@@ -31,6 +31,7 @@ class Camera
 		void SetUserMovementSpeed();
 		float GetFOV() const { return m_FOV; }
 
+		glm::quat RotationFromEuler(glm::vec3 eulerAngles);
 		void TurnOnEuler();
 		void TurnOffEuler();
 		void UpdateEuler(float upRotAngle, float rightRotAngle);
@@ -38,7 +39,7 @@ class Camera
 
 		InputHandler& GetInputHandler() { return m_InputHandler; }
 	private:
-		void BarrelRoll(float time);
+		void BarrelRoll(float roll);
 		void MouseMovementLook();
 		void CameraMove();
 		void ChangeMovementSpeed();
@@ -64,10 +65,9 @@ class Camera
 		const glm::vec3 m_originalRight = glm::vec3(-1.0f, 0.0f, 0.0f);
 		glm::vec3 m_cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 		glm::quat m_cameraRot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-		glm::quat m_originalCameraRot = m_cameraRot;
-		glm::vec3 m_Look = m_cameraRot * m_originalLook;
-		glm::vec3 m_Up = m_cameraRot * m_originalUp;
-		glm::vec3 m_Right = m_cameraRot * m_originalRight;
+		glm::vec3 m_Look = m_originalLook * m_cameraRot;
+		glm::vec3 m_Up = m_originalUp * m_cameraRot;
+		glm::vec3 m_Right = m_originalRight * m_cameraRot;
 		glm::vec3 m_EulerAngles = glm::vec3(0.0f, 0.0f, 0.0f);
 		glm::mat4 m_View = glm::lookAt(m_cameraPos, m_cameraPos + m_Look, m_Up);
 		float m_FOV = 60.0f; // in degrees

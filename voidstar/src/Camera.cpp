@@ -157,12 +157,13 @@ void Camera::SetUserMovementSpeed()
 
 glm::quat Camera::RotationFromEuler(glm::vec3 eulerAngles)
 {
-	// Euler angles are all calculated from the original Look, Up, and Right.  Multiply the return value of this function
-	// on the right so that the order of application is vec * XRot * YRot * ZRot, i.e. the x rotation is applied first.
-	glm::quat XRot = glm::angleAxis(-eulerAngles.x, m_originalRight);
-	glm::quat YRot = glm::angleAxis(-eulerAngles.y, m_originalUp);
-	glm::quat ZRot = glm::angleAxis(-eulerAngles.z, m_originalLook);
-	return glm::normalize(XRot * YRot * ZRot);
+	// Euler angles are all calculated relative to the original Look, Up, and Right.  Multiply the return value of this function
+	// on the left of a vector, e.g. retval * vec3, so that the order of application is ZRot * YRot * XRot * vec3,
+	// so that the X rotation (pitch) is applied first.
+	glm::quat XRot = glm::angleAxis(eulerAngles.x, m_originalRight);
+	glm::quat YRot = glm::angleAxis(eulerAngles.y, m_originalUp);
+	glm::quat ZRot = glm::angleAxis(eulerAngles.z, m_originalLook);
+	return glm::normalize(ZRot * YRot * XRot);
 }
 
 void Camera::TurnOnEuler()
@@ -182,7 +183,7 @@ void Camera::TurnOnEuler()
 
 	// We can't use a roll angle because we are forcing up to be fixed.
 	m_EulerAngles = glm::vec3(pitch, yaw, 0.0f);
-	m_Look = m_originalLook * RotationFromEuler(m_EulerAngles);
+	m_Look = RotationFromEuler(m_EulerAngles) * m_originalLook;
 	m_Up = m_originalUp;
 	m_Right = glm::cross(m_Look, m_Up);
 }
@@ -190,9 +191,9 @@ void Camera::TurnOnEuler()
 void Camera::TurnOffEuler()
 {
 		m_cameraRot = RotationFromEuler(m_EulerAngles);
-		m_Look = m_originalLook * m_cameraRot;
-		m_Up = m_originalUp * m_cameraRot;
-		m_Right = m_originalRight * m_cameraRot;
+		m_Look = m_cameraRot * m_originalLook;
+		m_Up = m_cameraRot * m_originalUp;
+		m_Right = m_cameraRot * m_originalRight;
 }
 
 void Camera::UpdateEuler(float yaw, float pitch)
@@ -210,26 +211,26 @@ void Camera::UpdateEuler(float yaw, float pitch)
 	}
 	m_EulerAngles.y += yaw;
 
-	m_Look = m_originalLook * RotationFromEuler(m_EulerAngles);
+	m_Look = RotationFromEuler(m_EulerAngles) * m_originalLook;
 	m_Up = m_Up;
 	m_Right = glm::cross(m_Look, m_Up);
 }
 
 void Camera::UpdateNonEuler(float yaw, float pitch)
 {
-	m_cameraRot = m_cameraRot * glm::angleAxis(-yaw, glm::cross(m_Right, m_Look));
-	m_cameraRot = m_cameraRot * glm::angleAxis(-pitch, m_Right);
+	// Apply pitch first to the existing rotation first, then yaw.
+	m_cameraRot = glm::angleAxis(yaw, glm::cross(m_Right, m_Look)) * glm::angleAxis(pitch, m_Right) * m_cameraRot;
 	m_cameraRot = glm::normalize(m_cameraRot);
-	m_Up = m_originalUp * m_cameraRot;
-	m_Look = m_originalLook * m_cameraRot;
-	m_Right = m_originalRight * m_cameraRot;
+	m_Up = m_cameraRot * m_originalUp;
+	m_Look = m_cameraRot * m_originalLook;
+	m_Right = m_cameraRot * m_originalRight;
 }
 
 void Camera::BarrelRoll(float roll)
 {
 	if (!m_UseEulerAngles)
 	{
-		m_cameraRot = m_cameraRot * glm::angleAxis(-roll, m_Look);
+		m_cameraRot = glm::angleAxis(roll, m_Look) * m_cameraRot;
 	}
 }
 

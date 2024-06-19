@@ -72,17 +72,17 @@ void Framebuffer::Initialize()
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
-void Framebuffer::Bind()
+void Framebuffer::Bind() const
 {
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_RendererID));
 }
 
-void Framebuffer::Unbind()
+void Framebuffer::Unbind() const
 {
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
-void Framebuffer::Validate()
+void Framebuffer::Validate() const
 {
 	ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 }

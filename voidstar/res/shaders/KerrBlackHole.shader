@@ -70,9 +70,7 @@ uniform float u_exposure;
 uniform float u_gamma;
 uniform float u_brightnessFromRadius;
 uniform float u_brightnessFromDiskVel;
-uniform float u_colourshiftPower;
-uniform float u_colourshiftMultiplier;
-uniform float u_colourshiftOffset;
+uniform float u_blueshiftPower;
 
 layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec4 brightColour;
@@ -132,7 +130,7 @@ vec3 fade(vec3 t)
     return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
-float noise(vec3 P)
+float noise3D(vec3 P)
 // Classic Perlin noise created by Ken Perlin.
 // Implementation by Stefan Gustavson: https://stegu.github.io/webgl-noise/
 {
@@ -203,7 +201,7 @@ float noise(vec3 P)
     return 2.2 * n_xyz;
 }
 
-float multifractal_noise(vec3 xyz, int octaves, float scale, float lacunarity, float dimension)
+float multifractal_noise3D(vec3 xyz, int octaves, float scale, float lacunarity, float dimension)
 {
     // Multifractal noise with multiplied fractals rather than added.
     // My attempt to emulate Blender's 3D multifractal noise shader.
@@ -214,7 +212,7 @@ float multifractal_noise(vec3 xyz, int octaves, float scale, float lacunarity, f
 
     for (int i = 0; i < octaves; i++)
     {
-        val *= amplitude * noise(frequency * xyz) + 1.0;
+        val *= amplitude * noise3D(frequency * xyz) + 1.0;
         amplitude *= gain;
         frequency *= lacunarity;
     }
@@ -855,9 +853,9 @@ void BSSphereIntersectionPoint(mat2x4 xp, out mat2x4 sphereIntersectionPoint, fl
         //RK23integrationStep(xp, xptest, xptest2, midpoint);
         RK23integrationStepFSAL(xp, xptest, xptest2, midpoint, localFSAL);
 #elif (ODE_SOLVER == 3)
-        //RK45integrationStep(xp, xptest, xptest2, midpoint);
+        RK45integrationStep(xp, xptest, xptest2, midpoint);
         //RK23integrationStep(xp, xptest, xptest2, midpoint);
-        RK23integrationStepFSAL(xp, xptest, xptest2, midpoint, localFSAL);
+        //RK23integrationStepFSAL(xp, xptest, xptest2, midpoint, localFSAL);
         //xptest = RK4integrationStep(xp, midpoint);
 #endif
         dist = metricDistance(xptest[0]);
@@ -921,10 +919,11 @@ vec3 getSphereColour(vec3 p)
 /////////////////   DISK SHADING   //////////////////
 /////////////////////////////////////////////////////
 
-vec3 sampleDiskTexture(vec3 p)
+vec3 drawDebugDiskTexture(const in vec3 p)
 {
     float pi = 3.14159265359;
     vec3 col = vec3(0.0);
+
     // For drawing the debug textures.
     float disk_divisions = 5.0;
 
@@ -933,77 +932,90 @@ vec3 sampleDiskTexture(vec3 p)
     u = u - floor(u);
     float v = clamp(1.0 - (length(vec2(p.x, p.z)) - u_InnerRadius) / (u_OuterRadius - u_InnerRadius), 0.0, 1.0);
 
-    if (u_useDebugDiskTexture)
+    // If drawing a texture to the disk:
+    //col = texture(diskTexture, vec2(u, v)).xyz;
+
+    // Makes alternating pattern between the two different colours.
+    float usign = sign(sin(disk_divisions * 2.0 * pi * u));
+    float uscaled = (usign + 1.0) * 0.5;
+    if (p.y >= 0)
     {
-        // Makes alternating pattern between the two different colours.
-        float usign = sign(sin(disk_divisions * 2.0 * pi * u));
-        float uscaled = (usign + 1.0) * 0.5;
-        if (p.y >= 0)
-        {
-            col = uscaled * u_diskDebugColourTop1 + (1.0 - uscaled) * u_diskDebugColourTop2;
-        }
-        else
-        {
-            col = uscaled * u_diskDebugColourBottom1 + (1.0 - uscaled) * u_diskDebugColourBottom2;
-        }
+        col = uscaled * u_diskDebugColourTop1 + (1.0 - uscaled) * u_diskDebugColourTop2;
     }
     else
     {
-        //vec2 uv = vec2(u, v);
-        //float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
-        //col = texture(diskTexture, uv).xyz * radialDimming;
-
-        // Use noise for sample
-        float r = length(p.xz);
-        float phi = atan(p.z, p.x);
-        float theta = atan(r, p.y);
-        float rotational_smear = -1.2;
-        float power = pow(theta, rotational_smear);
-        float rho = length(p);
-        float rhohalf = sqrt(rho);
-        float spiral_factor = 3.0;
-        float spiral = map(rhohalf, 0.0, 5.0, 0.0, spiral_factor);
-        phi += spiral + u_diskRotationAngle;
-        vec3 xyz = vec3(r * sin(power) * cos(phi), r * sin(power) * sin(phi), r * cos(power));
-        int octaves = 3;
-        float lacunarity = 2.0;
-        float dimension = 0.12;
-        float amplitude = 0.6;
-        float n = multifractal_noise(xyz, octaves, amplitude, lacunarity, dimension);
-        //float radialDimming = clamp((1.0 + -exp(-10.0 * v)), 0.0, 1.0);
-        //float radialDimming = clamp(100.0 * pow(rho, -2.5), 0.0, 1.0);
-        float radialDimming = clamp(500.0 * pow(rho, -2.5), 0.0, 1.0);
-        //col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n);
-        col = vec3(1.0, 1.0, 1.0) * (0.5 + 0.5 * n) * radialDimming;
+        col = uscaled * u_diskDebugColourBottom1 + (1.0 - uscaled) * u_diskDebugColourBottom2;
     }
     return col;
 }
 
-vec3 TemperatureToRGB(const in float temperature) {
-    // TODO: replace this the procedure described in this: https://scipython.com/blog/converting-a-spectrum-to-a-colour/?
-    // https://www.shadertoy.com/view/4sc3D7
+float sampleNoiseTexture(const in vec3 p)
+{
+    vec3 col = vec3(0.0);
+    // To spherical coordinates
+    float r = length(p.xz);
+    float phi = atan(p.z, p.x);
+    float theta = atan(r, p.y);
+
+    // Smear theta
+    float rotational_smear = -1.2;
+    float power = pow(theta, rotational_smear);
+
+    // Spiral phi and rotate it
+    float rho = length(p);
+    float rhohalf = sqrt(rho);
+    float spiral_factor = 3.0;
+    float spiral = map(rhohalf, 0.0, 5.0, 0.0, spiral_factor);
+    phi += spiral + u_diskRotationAngle;
+
+    // Back to Cartesian with the adjusted angles
+    vec3 xyz = vec3(rho * sin(power) * cos(phi), rho * sin(power) * sin(phi), rho * cos(power));
+
+    // Noise
+    int octaves = 3;
+    float lacunarity = 2.0;
+    float dimension = 0.12;
+    float amplitude = 0.6;
+    float noise = multifractal_noise3D(xyz, octaves, amplitude, lacunarity, dimension);
+
+    return noise;
+}
+
+vec3 TemperatureToRGB(in float temperature) {
+    // TODO: replace this with the procedure described here: https://scipython.com/blog/converting-a-spectrum-to-a-colour/
+    // For photons in free space, specific intensity / spectral radiance (brightness) I(\nu) is proportional to \nu**3
+    // See: https://en.wikipedia.org/wiki/Planck%27s_law#The_law for B_\nu(\nu, T)
+    // and https://en.wikipedia.org/wiki/Black-body_radiation#Doppler_effect
+
+    // From https://www.shadertoy.com/view/4sc3D7
     // Converts a blackbody temperature to colour in RGB.
-    // Valid from 1000 to 40000 K (and additionally 0 for pure full white)
+    // Valid from 1000 to 40000 K.
     // Values from: http://blenderartists.org/forum/showthread.php?270332-OSL-Goodness&p=2268693&viewfull=1#post2268693   
+    temperature = clamp(temperature, 1000.0, 40000.0);
     mat3 m = (temperature <= 6500.0) ? mat3(vec3(0.0, -2902.1955373783176, -8257.7997278925690),
         vec3(0.0, 1669.5803561666639, 2575.2827530017594),
         vec3(1.0, 1.3302673723350029, 1.8993753891711275)) :
         mat3(vec3(1745.0425298314172, 1216.6168361476490, -8257.7997278925690),
             vec3(-2666.3474220535695, -2173.1012343082230, 2575.2827530017594),
             vec3(0.55995389139931482, 0.70381203140554553, 1.8993753891711275));
-    return mix(clamp(vec3(m[0] / (vec3(clamp(temperature, 1000.0, 40000.0)) + m[1]) + m[2]), vec3(0.0), vec3(1.0)), vec3(1.0), smoothstep(1000.0, 0.0, temperature));
+    vec3 colour = mix(clamp(vec3(m[0] / (vec3(temperature) + m[1]) + m[2]), vec3(0.0), vec3(1.0)), vec3(1.0), smoothstep(1000.0, 0.0, temperature));
+    if (temperature < 1000.0)
+    {
+        colour *= (temperature / 1000.0);
+    }
+    return colour;
 }
 
-float f(float r, float a)
+float f(const in float r, const in float a)
 {
     // Uses the black hole's mass and spin, along with a point on the equatorial accretion disk that is r away from the
-    // center of the black hole, to calculate f, a function used in the time-averaged flux of radiant energy.
+    // center of the black hole, to calculate f, a function used in the calculation of the time-averaged flux of radiant energy.
     // From "Disk-accretion onto a black hole" by Page and Thorne (1973).
     if (r < u_risco)
     {
         return 0.0;
     }
-    float pi = 3.141592653589793;
+    float pi = 3.14159265359;
 
     float astar = a / u_BHMass;
     float x = sqrt(r / u_BHMass);
@@ -1026,83 +1038,108 @@ float f(float r, float a)
         - (x3numer / x3denom) * log((x - x3) / (x0 - x3)));
 }
 
-float observedTemperature(float r, float a, float blueshift)
+float observedTemperature(const float r, const float a, const float blueshift)
 {
     // from "Detecting Accretion Disks in Active Galactic Nuclei" by Fanton, et al (1997).
-    // (49/36)*R_isco is the radial distance where the accretion disk attains its maximum brightness / temperature.
+    // (49/36)*R_isco is the approximate radial distance where the accretion disk attains its maximum brightness / temperature.
     float r_max = (49.0 / 36.0) * u_risco;
 
-    // This r-mapping is a hack to make the disc look nice when the disk's inner radius is set to be smaller than the ISCO.
+    // This r-mapping is a hack to make the disc look nice when the disk's inner radius doesn't match the ISCO.
     // Of course, this has no basis in reality.
-    r = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
+    float mappedr = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
 
-    return blueshift * u_Tmax * pow(f(r, a) * r_max / (r * f(r_max, a)), 1.0 / 4.0);
+    // Realistic value for u_Tmax is roughly 10000K.
+    return blueshift * u_Tmax * pow(f(mappedr, a) * r_max / (mappedr * f(r_max, a)), 1.0 / 4.0);
 }
 
-void getDiskColour(mat2x4 diskIntersectionPoint, float previousy, float r, float a, inout vec3 rayCol, inout float T, float bloomDiskMultiplier)
+vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previousy, const in float r, 
+    const in float a, inout float T, const in float bloomDiskMultiplier)
 {
-    float absorption;
-
-    // Need to pass in the sign of the previousx's Cartesian y-value to colour the
-    // top and bottom of the disk differently in debug mode.
-    vec4 planeIntersectionPoint = diskIntersectionPoint[0];
-    vec3 diskSample = sampleDiskTexture(vec3(planeIntersectionPoint.y, previousy, planeIntersectionPoint.w));
-
-    // TODO: do a more realistic colouring of the accretion disk
-    // For photons in free space, specific intensity / spectral radiance (brightness) I(\nu) is proportional to \nu**3
-    // See: https://en.wikipedia.org/wiki/Planck%27s_law#The_law for B_\nu(\nu, T)
-    // and https://en.wikipedia.org/wiki/Black-body_radiation#Doppler_effect
+    vec3 rayCol;
+    vec3 diskSample;
+    vec3 emission;
     float brightnessFromRadius;
+    float brightnessFromVel;
+    float temperature;
+    vec4 diskVel;
+
+    vec4 planeIntersectionPoint = diskIntersectionPoint[0];
+    if (u_useDebugDiskTexture)
+    {
+        // Need to pass in the sign of previousx's Cartesian y-value to colour the top and bottom of the disk
+        // differently in debug mode.
+        diskSample = drawDebugDiskTexture(vec3(planeIntersectionPoint.y, previousy, planeIntersectionPoint.w));
+    }
+    else
+    {
+        // Can do multiple noise texture samples here and combine them.
+        diskSample = vec3(1.0) * (0.5 + 0.5 * sampleNoiseTexture(planeIntersectionPoint.yzw));
+        //diskSample = vec3(1.0) * sampleNoiseTexture(planeIntersectionPoint.yzw);
+    }
+
     if (!u_drawBasicDisk)
     {
         // Velocity (in Kerr-Schild cartesian coordinates) of a massive particle in circular orbit in the equatorial plane
         // at a distance r from a black hole with mass u_BHMass and spin a.
         // The minus sign in front of the time term is just to make the later dot product work out.  The ray of light
         // is moving toward the disk because we're tracing backwards, so we need to swap the sign on either
-        // the light momentum or the disk velocity, so we just do it here for simplicity.
+        // the light momentum or the disk velocity, so we just do it here for simplicity.  We flip observerVel's time term
+        // for the same reason.
 #ifdef INSIDE_HORIZON
-        vec4 diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+        diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
 #else
-        vec4 diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+        diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
 #endif
-#ifdef CLASSICAL
-        // HACK
-        float brightnessFromVel = 1.0;
-        float temperature = observedTemperature(r, a, brightnessFromVel);
-#else
-        // Brightness of the disk is adapted from https://www.shadertoy.com/view/MctGWj
-        // Note that we actually want to compute the sum dx_i/dt * dy^i/dt, where x is the light position and y is the
-        // disk particle position.  We are using momentum coordinates for the light, so we'd need to multiply by the
+        // g is the energy/frequency shift/Doppler effect.
+        // Note that we actually want to compute the sum dx_i/dt * dy^i/dt, where x is the light ray's position and y is the
+        // disk particle's position.  We are using momentum coordinates for the light, so we'd need to multiply by the
         // inverse metric to get dx^i/dt = g^ij * p_j.  But then in the metric dot product, we'd multiply by g_ij again:
-        // metricdot(dx^i/dt, dy^i/dt) = regulardot(g_ij dx^j/dt, dy^i/dt) = regulardot(g_ij * g^ij * p_i, dy^i/dt) = regulardot(p_i, dy^i/d)
-        // g is the energy shift
+        // metricdot(dx^i/dt, dy^i/dt) = regulardot(g_ij dx^j/dt, dy^i/dt) = regulardot(g_ik * g^kj * p_j, dy^i/dt) = regulardot(p_i, dy^i/dt)
+        // See, e.g. Gravitation by Misner, Thorne, and Wheeler, page 64.
         float g = 1.0 / dot(diskIntersectionPoint[1], diskVel);
-        float blueshift = pow(g, u_brightnessFromDiskVel);
-        float temperature = observedTemperature(r, a, blueshift);
-        //float brightnessFromVel = pow(dot(diskIntersectionPoint[1], diskVel), -u_brightnessFromDiskVel);
-        float brightnessFromVel = clamp(blueshift*g, 0.0, 10.0);
-#endif
-        // 5000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
+
+        // u_blueshiftPower = 1.0 is physically correct.
+        float blueshift = pow(g, u_blueshiftPower);
+        temperature = observedTemperature(r, a, blueshift);
+
+        // u_brightnessFromVel = 4.0 is physically correct.
+        // Needs to be clamped because the blueshift near the horizon and inside the horizon are too extreme otherwise and
+        // cause lots of numerical issues.
+        brightnessFromVel = clamp(pow(g, u_brightnessFromDiskVel), 0.0, 10.0);
+
+        // In brightnessFromRadius, subtracting the outer radius term ensures that the emissivity is 0 at the outer edge
+        // of the disk so that it perfectly smoothly fades away.
+        // 
+        // This is F(r) from "Disk-accretion onto a black hole" by Page and Thorne (1973)
+        // They called it the time-averaged flux of radiant energy / (time * area)
+        // 10000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
         // in a steady disk.
-        brightnessFromRadius = 5000.0 * f(r, a) / r;
-        //rayCol += T * diskSample * TemperatureToRGB(temperature) * brightnessFromVel * brightnessFromRadius * bloomDiskMultiplier;
-        rayCol += T * diskSample * TemperatureToRGB(temperature) * brightnessFromVel * bloomDiskMultiplier;
+        brightnessFromRadius = clamp(10000.0 * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
+        // 
+        // Instead, we can also use a simple power law as in https://arxiv.org/pdf/1601.02389.
+        // They call this the emissivity: \epsilon(r) \propto r^-q, where q is called the emissivity index.
+        //brightnessFromRadius = clamp(700.0 * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
+
+        emission = diskSample * brightnessFromRadius * TemperatureToRGB(temperature) * brightnessFromVel * bloomDiskMultiplier;
+        rayCol = T * emission;
     }
     else
     {
-        rayCol += T * diskSample * bloomDiskMultiplier;
+        emission = diskSample * bloomDiskMultiplier;
+        rayCol = T * emission;
     }
     if (u_transparentDisk && !u_useDebugDiskTexture && T > 0.05)
     {
         // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
         vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
         // The brighter the disk is at the intersection point, the higher the absorption.
-        //absorption = dot(brightnessMultiplier, diskSample) * u_diskAbsorption * (u_OuterRadius - r);
-        //absorption = brightnessFromRadius * u_diskAbsorption * (u_OuterRadius - r);
-        //absorption = u_diskAbsorption * (u_OuterRadius - r);
-        absorption = u_diskAbsorption * dot(brightnessMultiplier, diskSample);
+        //brightnessFromRadius = clamp(10000.0 * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
+        brightnessFromRadius = clamp(700.0 * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
+        float absorptionNoise = sampleNoiseTexture(-planeIntersectionPoint.yzw) * brightnessFromRadius;
+        float absorption = u_diskAbsorption * absorptionNoise;
         T *= exp(-absorption);
     }
+    return rayCol;
 }
 
 
@@ -1164,16 +1201,20 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     }
 
     float stepSize;
+    float oldStepSize;
+    // Cheap, dumb initial stepsize heuristic
 #ifdef INSIDE_HORIZON
     stepSize = 0.01 * dist / (10.0 * horizon);
 #else
-    // Cheap, dumb stepsize heuristic
     stepSize = 0.01 + (dist - horizon) / 10.0;
 #endif
-    float oldStepSize;
+
 #if (ODE_SOLVER == 2 || ODE_SOLVER == 3)
+    // Prepare adaptive ODE solvers for first-same-as-last (FSAL).
     mat2x4 FSAL = fasterxpupdate(xp, stepSize) / stepSize;
 #endif
+
+    // MAIN LOOP
     for (int i = 0; i < u_maxSteps; i++)
     {
         previousxp = xp;
@@ -1201,17 +1242,20 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
         // at the inner edge of the accretion disk.  Decreasing tolerance (i.e. forcing a smaller stepsize) fixes this.
         if (xp[0][2] * previousxp[0][2] < 0.0)
         {
-            // Do a binary search on stepsize to find the point where the geodesic crosses the xz-plane.
-            BSDiskIntersectionPoint(previousxp, xp, diskIntersectionPoint, oldStepSize);
-            diskDist = metricDistance(diskIntersectionPoint[0]);
-            if (diskDist <= u_OuterRadius && diskDist >= u_InnerRadius)
+            if (dist > horizon)
             {
-                hitDisk = true;
-                getDiskColour(diskIntersectionPoint, sign(previousxp[0][2]), diskDist, a, rayCol, T, bloomDiskMultiplier);
-                if (u_useDebugDiskTexture)
+                // Do a binary search on stepsize to find the point where the geodesic crosses the xz-plane.
+                BSDiskIntersectionPoint(previousxp, xp, diskIntersectionPoint, oldStepSize);
+                diskDist = metricDistance(diskIntersectionPoint[0]);
+                if (diskDist <= u_OuterRadius && diskDist >= u_InnerRadius)
                 {
-                    // No transparency.
-                    break;
+                    hitDisk = true;
+                    rayCol += getDiskColour(diskIntersectionPoint, sign(previousxp[0][2]), diskDist, a, T, bloomDiskMultiplier);
+                    if (u_useDebugDiskTexture)
+                    {
+                        // No transparency.
+                        break;
+                    }
                 }
             }
         }

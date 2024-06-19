@@ -72,7 +72,7 @@ void Application::OnPause()
 
 }
 
-void Application::ToggleVsync()
+void Application::ToggleVsync() const
 {
 	glfwSwapInterval(m_Vsync);
 }

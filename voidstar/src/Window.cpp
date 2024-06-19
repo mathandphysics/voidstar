@@ -49,7 +49,7 @@ GLFWwindow* Window::CreateWindow(bool fullscreen, bool vsync)
 {
     GLFWSetup();
 
-    /* GLFW Window Hints */
+    // GLFW Window Hints
 #ifndef NDEBUG
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #endif
@@ -79,7 +79,7 @@ GLFWwindow* Window::CreateWindow(bool fullscreen, bool vsync)
         // Normal windowed mode
         width = m_windowSizex;
         height = m_windowSizey;
-        monitor = NULL;
+        monitor = nullptr;
     }
     GLFWwindow* window = glfwCreateWindow(width, height, "void*", monitor, NULL);
 
@@ -89,13 +89,13 @@ GLFWwindow* Window::CreateWindow(bool fullscreen, bool vsync)
         exit(-1);
     }
 
-    /* Set callbacks */
+    // Set callbacks
     GLFWSetCallbacks(window);
 
-    /* Set mouse to camera controls */
+    // Set mouse to camera controls
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    /* Make the window's context current */
+    // Make the window's context current
     glfwMakeContextCurrent(window);
     glfwSwapInterval(vsync); // Enable vsync
 

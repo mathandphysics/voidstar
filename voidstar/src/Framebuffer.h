@@ -22,10 +22,10 @@ class Framebuffer
 		void SetSpecification(const FramebufferSpecification& spec);
 		void Initialize();
 
-		void Bind();
-		void Unbind();
+		void Bind() const;
+		void Unbind() const;
 
-		void Validate();
+		void Validate() const;
 		void Resize(unsigned int width, unsigned int height);
 
 		std::vector<unsigned int>& GetColourAttachments();

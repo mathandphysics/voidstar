@@ -13,10 +13,10 @@ public:
 	void OnMouseMovement(double xpos, double ypos);
 
 	int GetKey(int key) { return m_keyPressed[key]; }
-	double GetScroll() { return m_currentMouseScroll; }
+	double GetScroll() const { return m_currentMouseScroll; }
 	void ResetScroll() { m_currentMouseScroll = 0; }
-	double GetMouseDeltaX() { return m_deltaX; }
-	double GetMouseDeltaY() { return m_deltaY; }
+	double GetMouseDeltaX() const { return m_deltaX; }
+	double GetMouseDeltaY() const { return m_deltaY; }
 	void SetMouseDeltaXY(double x, double y) { m_deltaX = x; m_deltaY = y; }
 	void SetInitialMouseXY(double x, double y);
 

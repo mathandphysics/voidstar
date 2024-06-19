@@ -18,7 +18,7 @@ public:
 	void Run();
 	void OnWindowClose();
 	void OnPause();
-	void ToggleVsync();
+	void ToggleVsync() const;
 	void ToggleFullscreen();
 	void OnResize(int width, int height);
 

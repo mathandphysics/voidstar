@@ -18,9 +18,6 @@ struct graphicsPreset {
 	float gamma;
 	float brightnessFromRadius;
 	float brightnessFromDiskVel;
-	float colourshiftPower;
-	float colourshiftMultiplier;
-	float colourshiftOffset;
 };
 
 class BlackHole
@@ -36,13 +33,13 @@ public:
 	void CreateScreenQuad();
 	void LoadTextures();
 	void CompileBHShaders();
-	void CompilePostShaders();
+	void CompilePostShaders() const;
 	void CreateFBOs();
 
 	void SetShaderUniforms();
 	void SetScreenShaderUniforms();
 
-	float CalculateKerrDistance(glm::vec3 p);
+	float CalculateKerrDistance(const glm::vec3 p) const;
 	float CalculateDrawDistance();
 	void CalculateISCO();
 
@@ -69,7 +66,7 @@ private:
 	float m_diskInnerRadius = 2.25f * m_radius;
 	float m_diskOuterRadius = 9.0f * m_radius;
 	float m_a = 0.6f;
-	float m_Tmax = 4500.0f;
+	float m_Tmax = 2000.0f;
 	bool m_insideHorizon = false;
 
 	float m_diskRotationSpeed = 0.1f;
@@ -94,11 +91,9 @@ private:
 	float m_bloomDiskMultiplier = 2.5f;
 	float m_exposure = 0.4f;
 	float m_gamma = 0.7f;
-	float m_brightnessFromRadius = 0.0f;
-	float m_brightnessFromDiskVel = 3.0f;
-	float m_colourshiftPower = 2.0f;
-	float m_colourshiftMultiplier = 4400.0f;
-	float m_colourshiftOffset = 0.0f;
+	float m_blueshiftPower = 1.0;
+	float m_brightnessFromRadius = 4.0f;
+	float m_brightnessFromDiskVel = 4.0f;
 
 	bool m_ImGuiFirstTime = true;
 	bool m_ImGuiAllowMoveableDock = true;

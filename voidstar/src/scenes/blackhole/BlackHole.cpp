@@ -6,10 +6,10 @@
 
 
 
-graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 1.0f, 0.7f, 1.0f, 3.0f, 2.0f, 4400.0f, 0.0f };
-graphicsPreset interstellarPreset = { 1.6f, 0.1f, 10.0f, 0.49f, 0.56f, 1.0f, 3.0f, 1.9f, 2800.0f, 385.0f };
-graphicsPreset shadowPreset = { 0.7f, 0.1f, 4.8f, 0.43f, 0.19f, 0.0f, 5.2f, 0.0f, 40000.0f, 5000.0f };
-graphicsPreset celshadePreset = { 2.0f, 0.1f, 10.0f, 1.40f, 0.10f, 0.0f, 3.0f, 3.0f, 2100.0f, 385.0f };
+graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 1.0f, 0.7f, 4.0f, 4.0f };
+graphicsPreset interstellarPreset = { 1.6f, 0.1f, 10.0f, 0.49f, 0.56f, 4.0f, 4.0f };
+graphicsPreset shadowPreset = { 0.7f, 0.1f, 4.8f, 0.43f, 0.19f, 0.0f, 5.2f };
+graphicsPreset celshadePreset = { 2.0f, 0.1f, 10.0f, 1.40f, 0.10f, 0.0f, 3.0f };
 
 
 BlackHole::BlackHole()
@@ -24,7 +24,6 @@ BlackHole::BlackHole()
 
     // y=1 puts the camera slightly above the xz-plane of the accretion disk.
     Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -26.0f));
-    //Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 0.0f, 0.4f));
 
     SetGraphicsPreset(interstellarPreset);
 }
@@ -39,7 +38,7 @@ void BlackHole::OnUpdate()
     float deltaTime = Application::Get().GetTimer().GetDeltaTime();
     m_diskRotationAngle -= deltaTime * m_diskRotationSpeed;
 
-    // Set the new draw distance based on camera position.  Also determines whether the camera is inside the event horizon.
+    // Set the new draw distance based on camera position.  Also determine whether the camera is inside the event horizon.
     m_drawDistance = CalculateDrawDistance();
 }
 
@@ -130,7 +129,7 @@ void BlackHole::CompileBHShaders()
     SetShader(m_kerrBlackHoleShaderPath);
 }
 
-void BlackHole::CompilePostShaders()
+void BlackHole::CompilePostShaders() const
 {
     // Load and compile the post-processing shaders and set uniforms.
     std::shared_ptr<Shader> texture_to_screen_shader = Renderer::Get().GetShader(m_textureToScreenShaderPath);
@@ -223,9 +222,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_bloomDiskMultiplier", m_bloomDiskMultiplier);
     shader->SetUniform1f("u_brightnessFromRadius", m_brightnessFromRadius);
     shader->SetUniform1f("u_brightnessFromDiskVel", m_brightnessFromDiskVel);
-    shader->SetUniform1f("u_colourshiftPower", m_colourshiftPower);
-    shader->SetUniform1f("u_colourshiftMultiplier", m_colourshiftMultiplier);
-    shader->SetUniform1f("u_colourshiftOffset", m_colourshiftOffset);
+    shader->SetUniform1f("u_blueshiftPower", m_blueshiftPower);
     shader->SetUniform1f("u_exposure", m_exposure);
     shader->SetUniform1f("u_gamma", m_gamma);
 
@@ -267,7 +264,7 @@ void BlackHole::PostProcess()
 {
     if (m_useBloom)
     {
-        // Do Guassian blur
+        // Guassian blur
         m_horizontalPass = true;
         m_firstIteration = true;
         unsigned int amount = 10;
@@ -320,7 +317,7 @@ void BlackHole::PostProcess()
     }
 }
 
-float BlackHole::CalculateKerrDistance(glm::vec3 p)
+float BlackHole::CalculateKerrDistance(const glm::vec3 p) const
 {
     float b = m_a * m_a - glm::dot(p, p);
     float c = -m_a * m_a * p.y * p.y;
@@ -660,6 +657,11 @@ void BlackHole::ImGuiDebug()
 
 void BlackHole::ImGuiCinematic()
 {
+    ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 10.0f, "Background = %.1f");
+    ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
+    ImGui::SliderFloat("##brightnessFromRadius", &m_brightnessFromRadius, 0.0f, 10.0f, "Brightness from Radius = %.2f");
+    ImGui::SliderFloat("##blueshiftPower", &m_blueshiftPower, 0.0f, 10.0f, "Blueshift Power = %.2f");
+    ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
     if (ImGui::Checkbox("Cinematic Mode", &m_useBloom))
     {
         if (m_useBloom)
@@ -695,16 +697,8 @@ void BlackHole::ImGuiCinematic()
         }
         ImGui::Separator();
         ImGui::SliderFloat("##BloomThreshold", &m_bloomThreshold, 0.1f, 10.0f, "Bloom Threshold = %.1f");
-        ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 10.0f, "Background = %.1f");
-        ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
         ImGui::SliderFloat("##Exposure", &m_exposure, 0.1f, 4.0f, "Exposure = %.2f");
         ImGui::SliderFloat("##Gamma", &m_gamma, 0.1f, 3.0f, "Gamma = %.2f");
-        ImGui::SliderFloat("##brightnessFromRadius", &m_brightnessFromRadius, 0.0f, 10.0f, "Brightness from Radius = %.2f");
-        ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
-        ImGui::SliderFloat("##ColourshiftPower", &m_colourshiftPower, 0.0f, 10.0f, "Disk Colour Power = %.1f");
-        ImGui::SliderFloat("##ColourshiftMultiplier", &m_colourshiftMultiplier, 100.0f, 40000.0f, "Disk Colour Multiplier = %.0f");
-        ImGui::SliderFloat("##ColourshiftOffset", &m_colourshiftOffset, 0.0f, 5000.0f, "Disk Colour Offset = %.0f");
-
     }
 }
 
@@ -730,9 +724,6 @@ void BlackHole::SetGraphicsPreset(const graphicsPreset &preset)
     m_gamma = preset.gamma;
     m_brightnessFromRadius = preset.brightnessFromRadius;
     m_brightnessFromDiskVel = preset.brightnessFromDiskVel;
-    m_colourshiftPower = preset.colourshiftPower;
-    m_colourshiftMultiplier = preset.colourshiftMultiplier;
-    m_colourshiftOffset = preset.colourshiftOffset;
 }
 
 void BlackHole::SetShader(const std::string& filePath)

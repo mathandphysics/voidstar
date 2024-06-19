@@ -43,7 +43,7 @@ void Camera::CameraGUI()
 	{
 		SetUserMovementSpeed();
 	}
-	if (ImGui::SliderFloat("##FOV", &m_FOV, 20.0f, 120.0f, "FOV = %.1f"))
+	if (ImGui::SliderFloat("##FOV", &m_FOV, 20.0f, 150.0f, "FOV = %.1f"))
 	{
 		SetProj();
 	}
@@ -92,12 +92,12 @@ void Camera::DebugGUI()
 }
 #endif
 
-glm::mat4 Camera::GetView()
+glm::mat4 Camera::GetView() const
 {
 	return glm::lookAt(m_cameraPos, m_cameraPos + m_Look, m_Up);
 }
 
-glm::mat4 Camera::GetSkyboxView()
+glm::mat4 Camera::GetSkyboxView() const
 {
 	return glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), m_Look, m_Up);
 }
@@ -108,9 +108,9 @@ void Camera::Reset()
 	m_MouseSpeed = m_UserDefinedMouseSpeed * m_defaultMouseSpeed;
 	m_cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 	m_cameraRot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-	m_Look = glm::normalize(m_cameraRot * m_originalLook);
-	m_Up = glm::normalize(m_cameraRot * m_originalUp);
-	m_Right = glm::normalize(m_cameraRot * m_originalRight);
+	m_Look = m_cameraRot * m_originalLook;
+	m_Up = m_cameraRot * m_originalUp;
+	m_Right = m_cameraRot * m_originalRight;
 	m_EulerAngles = glm::vec3(0.0f, 0.0f, 0.0f);
 	m_View = glm::lookAt(m_cameraPos, m_cameraPos + m_Look, m_Up);
 	m_InputHandler.ResetScroll();
@@ -159,7 +159,11 @@ glm::quat Camera::RotationFromEuler(glm::vec3 eulerAngles)
 {
 	// Euler angles are all calculated relative to the original Look, Up, and Right.  Multiply the return value of this function
 	// on the left of a vector, e.g. retval * vec3, so that the order of application is ZRot * YRot * XRot * vec3,
-	// so that the X rotation (pitch) is applied first.
+	// i.e. so that the X rotation (pitch) is applied to the vector first, then the Y rotation (yaw), and finally
+	// the Z rotation (roll).
+
+	// Note that if we wanted to multiply on the right, we'd need to flip the sign of the euler angle, e.g. like
+	// vec3 * glm::angleAxis(-eulerAngles.x, m_originalRight);
 	glm::quat XRot = glm::angleAxis(eulerAngles.x, m_originalRight);
 	glm::quat YRot = glm::angleAxis(eulerAngles.y, m_originalUp);
 	glm::quat ZRot = glm::angleAxis(eulerAngles.z, m_originalLook);
@@ -169,7 +173,7 @@ glm::quat Camera::RotationFromEuler(glm::vec3 eulerAngles)
 void Camera::TurnOnEuler()
 {
 	m_Up = m_originalUp;
-	// Make sure m_Look is normalized before we find theta and phi.
+	// Make sure m_Look is normalized before we find pitch and yaw.
 	m_Look = glm::normalize(m_Look);
 	float pitch = glm::asin(m_Look.y);
 	float yaw = glm::atan(m_Look.x, m_Look.z);
@@ -183,17 +187,19 @@ void Camera::TurnOnEuler()
 
 	// We can't use a roll angle because we are forcing up to be fixed.
 	m_EulerAngles = glm::vec3(pitch, yaw, 0.0f);
+	// This should keep m_Look unchanged if the Euler angles were calculated properly.
 	m_Look = RotationFromEuler(m_EulerAngles) * m_originalLook;
 	m_Up = m_originalUp;
-	m_Right = glm::cross(m_Look, m_Up);
+	m_Right = glm::normalize(glm::cross(m_Look, m_Up));
 }
 
 void Camera::TurnOffEuler()
 {
-		m_cameraRot = RotationFromEuler(m_EulerAngles);
-		m_Look = m_cameraRot * m_originalLook;
-		m_Up = m_cameraRot * m_originalUp;
-		m_Right = m_cameraRot * m_originalRight;
+	// Convert to a quaternion-based local coordinate system without a fixed up direction.
+	m_cameraRot = RotationFromEuler(m_EulerAngles);
+	m_Look = m_cameraRot * m_originalLook;
+	m_Up = m_cameraRot * m_originalUp;
+	m_Right = m_cameraRot * m_originalRight;
 }
 
 void Camera::UpdateEuler(float yaw, float pitch)
@@ -212,13 +218,13 @@ void Camera::UpdateEuler(float yaw, float pitch)
 	m_EulerAngles.y += yaw;
 
 	m_Look = RotationFromEuler(m_EulerAngles) * m_originalLook;
-	m_Up = m_Up;
-	m_Right = glm::cross(m_Look, m_Up);
+	m_Up = m_originalUp;
+	m_Right = glm::normalize(glm::cross(m_Look, m_Up));
 }
 
 void Camera::UpdateNonEuler(float yaw, float pitch)
 {
-	// Apply pitch first to the existing rotation first, then yaw.
+	// Apply pitch to the existing rotation first, then yaw.
 	m_cameraRot = glm::angleAxis(yaw, glm::cross(m_Right, m_Look)) * glm::angleAxis(pitch, m_Right) * m_cameraRot;
 	m_cameraRot = glm::normalize(m_cameraRot);
 	m_Up = m_cameraRot * m_originalUp;
@@ -309,7 +315,7 @@ void Camera::CameraMove()
 
 void Camera::ChangeMovementSpeed()
 {
-	double scroll = m_InputHandler.GetScroll();
+	float scroll = (float)m_InputHandler.GetScroll();
 	if (scroll != 0)
 	{
 		m_MovementSpeed += m_movementSpeedIncrement * scroll;

@@ -77,8 +77,8 @@ ShaderProgramSource Shader::ParseShader(const std::string& filepath)
 void Shader::InsertDefines(std::string& shadersource, const std::vector<std::string>& defines)
 {
 
-    // Now go through the source and insert the defines lines.
-    // Find the #version declaration.  Defines must always go after this.
+    // Go through the source and insert the defines lines.
+    // Find the #version declaration.  Defines must always go after this per the GLSL standard.
     size_t found = shadersource.find("#version", 0);
     size_t insertloc;
     if (found != std::string::npos)

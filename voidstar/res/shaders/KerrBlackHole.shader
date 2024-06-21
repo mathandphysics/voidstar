@@ -34,6 +34,7 @@ uniform float u_BHRadius;
 uniform float u_risco;
 uniform float u_fOfRISCO;
 uniform float u_BHMass;
+uniform float u_dMdt;
 uniform float u_a;
 uniform float u_Tmax;
 uniform float u_diskRotationAngle;
@@ -41,9 +42,7 @@ uniform float u_diskRotationAngle;
 uniform int u_msaa;
 
 uniform int u_maxSteps;
-uniform float u_stepSize;
 uniform float u_drawDistance;
-uniform float u_epsilon;
 uniform int u_ODESolver;
 uniform float u_tolerance;
 uniform float u_diskIntersectionThreshold;
@@ -68,7 +67,6 @@ uniform float u_bloomBackgroundMultiplier;
 uniform float u_bloomDiskMultiplier;
 uniform float u_exposure;
 uniform float u_gamma;
-uniform float u_brightnessFromRadius;
 uniform float u_brightnessFromDiskVel;
 uniform float u_blueshiftPower;
 
@@ -130,7 +128,7 @@ vec3 fade(vec3 t)
     return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
-float noise3D(vec3 P)
+float cnoise3D(vec3 P)
 // Classic Perlin noise created by Ken Perlin.
 // Implementation by Stefan Gustavson: https://stegu.github.io/webgl-noise/
 {
@@ -201,10 +199,86 @@ float noise3D(vec3 P)
     return 2.2 * n_xyz;
 }
 
+float snoise3D(vec3 v)
+    // Simplex noise created by Ken Perlin.
+    // Implementation by Stefan Gustavson and Ashima Arts: https://stegu.github.io/webgl-noise/
+{
+    const vec2  C = vec2(1.0 / 6.0, 1.0 / 3.0);
+    const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+
+    // First corner
+    vec3 i = floor(v + dot(v, C.yyy));
+    vec3 x0 = v - i + dot(i, C.xxx);
+
+    // Other corners
+    vec3 g = step(x0.yzx, x0.xyz);
+    vec3 l = 1.0 - g;
+    vec3 i1 = min(g.xyz, l.zxy);
+    vec3 i2 = max(g.xyz, l.zxy);
+
+    //   x0 = x0 - 0.0 + 0.0 * C.xxx;
+    //   x1 = x0 - i1  + 1.0 * C.xxx;
+    //   x2 = x0 - i2  + 2.0 * C.xxx;
+    //   x3 = x0 - 1.0 + 3.0 * C.xxx;
+    vec3 x1 = x0 - i1 + C.xxx;
+    vec3 x2 = x0 - i2 + C.yyy; // 2.0*C.x = 1/3 = C.y
+    vec3 x3 = x0 - D.yyy;      // -1.0+3.0*C.x = -0.5 = -D.y
+
+    // Permutations
+    i = mod289(i);
+    vec4 p = permute(permute(permute(
+        i.z + vec4(0.0, i1.z, i2.z, 1.0))
+        + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+        + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+
+    // Gradients: 7x7 points over a square, mapped onto an octahedron.
+    // The ring size 17*17 = 289 is close to a multiple of 49 (49*6 = 294)
+    float n_ = 0.142857142857; // 1.0/7.0
+    vec3  ns = n_ * D.wyz - D.xzx;
+
+    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);  //  mod(p,7*7)
+
+    vec4 x_ = floor(j * ns.z);
+    vec4 y_ = floor(j - 7.0 * x_);    // mod(j,N)
+
+    vec4 x = x_ * ns.x + ns.yyyy;
+    vec4 y = y_ * ns.x + ns.yyyy;
+    vec4 h = 1.0 - abs(x) - abs(y);
+
+    vec4 b0 = vec4(x.xy, y.xy);
+    vec4 b1 = vec4(x.zw, y.zw);
+
+    //vec4 s0 = vec4(lessThan(b0,0.0))*2.0 - 1.0;
+    //vec4 s1 = vec4(lessThan(b1,0.0))*2.0 - 1.0;
+    vec4 s0 = floor(b0) * 2.0 + 1.0;
+    vec4 s1 = floor(b1) * 2.0 + 1.0;
+    vec4 sh = -step(h, vec4(0.0));
+
+    vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
+    vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
+
+    vec3 p0 = vec3(a0.xy, h.x);
+    vec3 p1 = vec3(a0.zw, h.y);
+    vec3 p2 = vec3(a1.xy, h.z);
+    vec3 p3 = vec3(a1.zw, h.w);
+
+    //Normalise gradients
+    vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+    p0 *= norm.x;
+    p1 *= norm.y;
+    p2 *= norm.z;
+    p3 *= norm.w;
+
+    // Mix final noise value
+    vec4 m = max(0.5 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
+    m = m * m;
+    return 105.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1),
+        dot(p2, x2), dot(p3, x3)));
+}
+
 float multifractal_noise3D(vec3 xyz, int octaves, float scale, float lacunarity, float dimension)
 {
     // Multifractal noise with multiplied fractals rather than added.
-    // My attempt to emulate Blender's 3D multifractal noise shader.
     float val = 1.0;
     float amplitude = scale;
     float gain = pow(lacunarity, -dimension);
@@ -212,7 +286,8 @@ float multifractal_noise3D(vec3 xyz, int octaves, float scale, float lacunarity,
 
     for (int i = 0; i < octaves; i++)
     {
-        val *= amplitude * noise3D(frequency * xyz) + 1.0;
+        val *= amplitude * cnoise3D(frequency * xyz) + 1.0;
+        //val *= amplitude * snoise3D(frequency * xyz) + 1.0;
         amplitude *= gain;
         frequency *= lacunarity;
     }
@@ -978,6 +1053,7 @@ float sampleNoiseTexture(const in vec3 p)
     float amplitude = 0.6;
     float noise = multifractal_noise3D(xyz, octaves, amplitude, lacunarity, dimension);
 
+    //return pow(noise, 1.5);
     return noise;
 }
 
@@ -1073,8 +1149,8 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
     else
     {
         // Can do multiple noise texture samples here and combine them.
-        diskSample = vec3(1.0) * (0.5 + 0.5 * sampleNoiseTexture(planeIntersectionPoint.yzw));
-        //diskSample = vec3(1.0) * sampleNoiseTexture(planeIntersectionPoint.yzw);
+        //diskSample = vec3(1.0) * (0.5 + 0.5 * sampleNoiseTexture(planeIntersectionPoint.yzw));
+        diskSample = vec3(1.0) * sampleNoiseTexture(planeIntersectionPoint.yzw);
     }
 
     if (!u_drawBasicDisk)
@@ -1087,10 +1163,12 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // for the same reason.
 #ifdef INSIDE_HORIZON
         diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+        diskVel /= sqrt(-dot(invmetric(vec4(0.0, u_cameraPos)) * diskVel, diskVel));
 #else
         diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+        diskVel /= sqrt(-dot(invmetric(vec4(0.0, u_cameraPos)) * diskVel, diskVel));
 #endif
-        // g is the energy/frequency shift/Doppler effect.
+        // g is the energy/frequency shift aka the Doppler effect.
         // Note that we actually want to compute the sum dx_i/dt * dy^i/dt, where x is the light ray's position and y is the
         // disk particle's position.  We are using momentum coordinates for the light, so we'd need to multiply by the
         // inverse metric to get dx^i/dt = g^ij * p_j.  But then in the metric dot product, we'd multiply by g_ij again:
@@ -1104,7 +1182,7 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
 
         // u_brightnessFromVel = 4.0 is physically correct.
         // Needs to be clamped because the blueshift near the horizon and inside the horizon are too extreme otherwise and
-        // cause lots of numerical issues.
+        // cause numerical issues.
         brightnessFromVel = clamp(pow(g, u_brightnessFromDiskVel), 0.0, 10.0);
 
         // In brightnessFromRadius, subtracting the outer radius term ensures that the emissivity is 0 at the outer edge
@@ -1114,11 +1192,12 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // They called it the time-averaged flux of radiant energy / (time * area)
         // 10000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
         // in a steady disk.
-        brightnessFromRadius = clamp(10000.0 * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
+        brightnessFromRadius = clamp(u_dMdt * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
         // 
         // Instead, we can also use a simple power law as in https://arxiv.org/pdf/1601.02389.
         // They call this the emissivity: \epsilon(r) \propto r^-q, where q is called the emissivity index.
-        //brightnessFromRadius = clamp(700.0 * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
+        // A common value for q is 2.5.
+        //brightnessFromRadius = clamp(u_dMdt * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
 
         emission = diskSample * brightnessFromRadius * TemperatureToRGB(temperature) * brightnessFromVel * bloomDiskMultiplier;
         rayCol = T * emission;
@@ -1204,7 +1283,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     float oldStepSize;
     // Cheap, dumb initial stepsize heuristic
 #ifdef INSIDE_HORIZON
-    stepSize = 0.01 * dist / (10.0 * horizon);
+    stepSize = dist / (100.0 * horizon);
 #else
     stepSize = 0.01 + (dist - horizon) / 10.0;
 #endif

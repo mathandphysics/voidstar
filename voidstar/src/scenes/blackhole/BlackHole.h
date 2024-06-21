@@ -11,13 +11,20 @@
 
 
 struct graphicsPreset {
+	std::string name;
+	float innerRadius;
+	float a;
+	float temp;
+	float diskAbsorption;
+	float backgroundBrightness;
+	float diskBrightness;
+	float dMdt;
+	float blueshiftPOW;
+	float diskDopplerBrightness;
+	bool useBloom;
 	float bloomThreshold;
-	float bloomBackgroundMultiplier;
-	float bloomDiskMultiplier;
 	float exposure;
 	float gamma;
-	float brightnessFromRadius;
-	float brightnessFromDiskVel;
 };
 
 class BlackHole
@@ -61,6 +68,7 @@ public:
 
 private:
 	float m_mass = 1.0f;
+	float m_dMdt = 10000.0; // dM/dt = \dot{M}
 	float m_radius = 2.0f * m_mass;
 	float m_risco;
 	float m_diskInnerRadius = 2.25f * m_radius;
@@ -85,15 +93,19 @@ private:
 	float m_bloomThreshold = 0.95f;
 	bool m_horizontalPass = true;
 	bool m_firstIteration = true;
-	int m_presetSelector = 0;
 	float m_diskAbsorption = 1.0f;
 	float m_bloomBackgroundMultiplier = 0.8f;
 	float m_bloomDiskMultiplier = 2.5f;
 	float m_exposure = 0.4f;
 	float m_gamma = 0.7f;
 	float m_blueshiftPower = 1.0;
-	float m_brightnessFromRadius = 4.0f;
 	float m_brightnessFromDiskVel = 4.0f;
+
+	int m_presetSelector = 0;
+	std::vector<graphicsPreset> m_presets = { { "Warm", 4.5f, 0.6f, 2000.0f, 2.5f, 0.0f, 6.0f, 10000.0f, 1.0f, 4.0f, true, 1.6f, 0.5f, 0.5f },
+		{ "Interstellar", 4.5f, 0.6f, 4500.0f, 3.0f, 0.0f, 10.0f, 1000.0f, 0.0f, 1.0f, true, 0.1f, 1.0f, 0.5f },
+		{ "Realistic", 3.85f, 0.6f, 10000.0f, 3.0f, 0.0f, 1.0f, 2000.0f, 1.0f, 4.0f, true, 4.0f, 1.0f, 0.5f },
+	};
 
 	bool m_ImGuiFirstTime = true;
 	bool m_ImGuiAllowMoveableDock = true;
@@ -117,11 +129,13 @@ private:
 
 	std::vector<std::string> m_cubeTexturePaths;
 	TextureCubeMap m_cubemap;
+	std::string m_diskTexturePath;
+	std::shared_ptr<Texture2D> m_diskTexture;
+	std::string m_sphereTexturePath;
+	std::shared_ptr<Texture2D> m_sphereTexture;
 
 	int m_maxSteps = 200;
-	float m_stepSize = 0.3f;
 	float m_drawDistance = 100.0f;
-	float m_epsilon = 0.0001f;
 	float m_tolerance = 0.01f;
 	float m_diskIntersectionThreshold = 0.001f;
 	float m_sphereIntersectionThreshold = 0.001f;
@@ -131,13 +145,10 @@ private:
 	glm::vec3 m_diskDebugColourTop2 = glm::vec3(0.02, 0.47, 0.87);
 	glm::vec3 m_diskDebugColourBottom1 = glm::vec3(0.98, 0.4, 0.0);
 	glm::vec3 m_diskDebugColourBottom2 = glm::vec3(1.0, 0.84, 0.0);
-	std::string m_diskTexturePath;
-	std::shared_ptr<Texture2D> m_diskTexture;
 
 	glm::vec3 m_sphereDebugColour1 = glm::vec3(0.8, 0.0, 0.0);
 	glm::vec3 m_sphereDebugColour2 = glm::vec3(0.30, 0.05, 0.46);
-	std::string m_sphereTexturePath;
-	std::shared_ptr<Texture2D> m_sphereTexture;
+
 
 	unsigned int m_diskTextureSlot = 4;
 	unsigned int m_sphereTextureSlot = 2;

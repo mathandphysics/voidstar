@@ -4,14 +4,6 @@
 #include <cmath>
 #include "imgui_internal.h"
 
-
-
-graphicsPreset defaultPreset = { 0.95f, 0.8f, 2.5f, 1.0f, 0.7f, 4.0f, 4.0f };
-graphicsPreset interstellarPreset = { 1.6f, 0.1f, 10.0f, 0.49f, 0.56f, 4.0f, 4.0f };
-graphicsPreset shadowPreset = { 0.7f, 0.1f, 4.8f, 0.43f, 0.19f, 0.0f, 5.2f };
-graphicsPreset celshadePreset = { 2.0f, 0.1f, 10.0f, 1.40f, 0.10f, 0.0f, 3.0f };
-
-
 BlackHole::BlackHole()
 {
     CalculateISCO();
@@ -23,9 +15,13 @@ BlackHole::BlackHole()
     CompilePostShaders();
 
     // y=1 puts the camera slightly above the xz-plane of the accretion disk.
-    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -26.0f));
+    // Ideally we'd be able to set the z-distance from the black hole programmatically based on the camera's FOV,
+    // but because of the bending of light, the calculation too complicated, so we set it manually.
+    // FOV = 60  =>  z-distance = -25.0.
+    // FOV = 40  =>  z-distance = -35.5.
+    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -35.5f));
 
-    SetGraphicsPreset(interstellarPreset);
+    SetGraphicsPreset(m_presets[m_presetSelector]);
 }
 
 BlackHole::~BlackHole()
@@ -112,13 +108,21 @@ void BlackHole::LoadTextures()
     };
     m_cubemap.SetCubeMap(m_cubeTexturePaths);
 
-    m_diskTexturePath = "res/textures/accretion_disk.jpg";
-    m_diskTexture = Renderer::Get().GetTexture(m_diskTexturePath, true);
+    // Set disk texture path here, if desired.
+    m_diskTexturePath = "";
+    if (!m_diskTexturePath.empty())
+    {
+        m_diskTexture = Renderer::Get().GetTexture(m_diskTexturePath, true);
+    }
 
     if (m_useSphereTexture)
     {
-        m_sphereTexturePath = "res/textures/Blue_Marble_2002.png";
-        m_sphereTexture = Renderer::Get().GetTexture(m_sphereTexturePath, true);
+        // Set sphere texture path here, if desired.
+        m_sphereTexturePath = "";
+        if (!m_sphereTexturePath.empty())
+        {
+            m_sphereTexture = Renderer::Get().GetTexture(m_sphereTexturePath, true);
+        }
     }
 }
 
@@ -185,6 +189,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_BHRadius", m_radius);
     shader->SetUniform1f("u_risco", m_risco);
     shader->SetUniform1f("u_BHMass", m_mass);
+    shader->SetUniform1f("u_dMdt", m_dMdt);
     shader->SetUniform1f("u_a", m_a);
     shader->SetUniform1f("u_Tmax", m_Tmax);
     shader->SetUniform1f("u_diskRotationAngle", m_diskRotationAngle);
@@ -192,9 +197,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1i("u_msaa", m_msaa);
 
     shader->SetUniform1i("u_maxSteps", m_maxSteps);
-    shader->SetUniform1f("u_stepSize", m_stepSize);
     shader->SetUniform1f("u_drawDistance", m_drawDistance);
-    shader->SetUniform1f("u_epsilon", m_epsilon);
     shader->SetUniform1i("u_ODESolver", m_ODESolverSelector);
     shader->SetUniform1f("u_tolerance", m_tolerance);
     shader->SetUniform1f("u_diskIntersectionThreshold", m_diskIntersectionThreshold);
@@ -220,7 +223,6 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_diskAbsorption", m_diskAbsorption);
     shader->SetUniform1f("u_bloomBackgroundMultiplier", m_bloomBackgroundMultiplier);
     shader->SetUniform1f("u_bloomDiskMultiplier", m_bloomDiskMultiplier);
-    shader->SetUniform1f("u_brightnessFromRadius", m_brightnessFromRadius);
     shader->SetUniform1f("u_brightnessFromDiskVel", m_brightnessFromDiskVel);
     shader->SetUniform1f("u_blueshiftPower", m_blueshiftPower);
     shader->SetUniform1f("u_exposure", m_exposure);
@@ -229,8 +231,11 @@ void BlackHole::SetShaderUniforms()
     glm::vec3 cameraPos = Application::Get().GetCamera().GetPosition();
     shader->SetUniform3f("u_cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
 
-    m_diskTexture->Bind(m_diskTextureSlot);
-    if (m_useSphereTexture)
+    if (m_diskTexture)
+    {
+        m_diskTexture->Bind(m_diskTextureSlot);
+    }
+    if (m_useSphereTexture && m_sphereTexture)
     {
         m_sphereTexture->Bind(m_sphereTextureSlot);
     }
@@ -489,7 +494,6 @@ void BlackHole::ImGuiChooseBH()
     ImGui::Text("Black Hole Selector:");
     if (ImGui::RadioButton("Kerr BH", &m_shaderSelector, 0))
     {
-        m_useBloom = true;
         m_selectedShaderString = m_kerrBlackHoleShaderPath;
         SetShader(m_selectedShaderString);
         m_maxSteps = 200;
@@ -499,22 +503,9 @@ void BlackHole::ImGuiChooseBH()
     ImGui::SameLine();
     HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  "
         "The parameter \"a\" above is the spin parameter.  a=0 is a non-rotating black hole.");
-    if (ImGui::RadioButton("Classical BH (Fast)", &m_shaderSelector, 1))
-    {
-        m_useBloom = false;
-        m_selectedShaderString = m_kerrBlackHoleShaderPath;
-        SetShader(m_selectedShaderString);
-        m_presetSelector = -1;
-        SetGraphicsPreset(defaultPreset);
-        m_maxSteps = 2000;
-        m_a = 0.0f;
-        CalculateISCO();
-    }
-    ImGui::SameLine();
-    HelpMarker("Inaccurate, non-rotating black hole based on Newtonian Gravity.");
+
     if (ImGui::RadioButton("Minkowski BH", &m_shaderSelector, 2))
     {
-        m_useBloom = false;
         m_selectedShaderString = m_kerrBlackHoleShaderPath;
         SetShader(m_selectedShaderString);
         m_maxSteps = 2000;
@@ -523,14 +514,6 @@ void BlackHole::ImGuiChooseBH()
     }
     ImGui::SameLine();
     HelpMarker("Minkowski metric of General Relativity.  This is standard Euclidean 3-space.");
-    if (ImGui::RadioButton("Flat BH (Fast)", &m_shaderSelector, 3))
-    {
-        m_useBloom = false;
-        m_selectedShaderString = m_flatShaderPath;
-        SetShader(m_selectedShaderString);
-    }
-    ImGui::SameLine();
-    HelpMarker("Ray tracer using straight line rays/intersections.");
 }
 
 void BlackHole::ImGuiBHProperties()
@@ -615,9 +598,6 @@ void BlackHole::ImGuiSimQuality()
     ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 1000, "Max Steps = %d");
     ImGui::SliderFloat("##Disk Intersection Threshold", &m_diskIntersectionThreshold, 0.0001f, 0.1f, "Disk Intersection Error = %.4f");
     ImGui::SliderFloat("##Sphere Intersection Threshold", &m_sphereIntersectionThreshold, 0.0001f, 0.1f, "Sphere Intersection Error = %.4f");
-    //ImGui::SliderFloat("##StepSize", &m_stepSize, 0.01f, 0.5f, "Step Size = %.2f");
-    //ImGui::SliderFloat("##drawDistance", &m_drawDistance, 1.0f, 1000.0, "Max Distance = %.0f");
-    //ImGui::SliderFloat("##Epsilon", &m_epsilon, 0.00001f, 0.001f, "Epsilon = %.5f");
     if (m_ODESolverSelector == 2 || m_ODESolverSelector == 3)
     {
         ImGui::Text("Tolerance:");
@@ -657,44 +637,34 @@ void BlackHole::ImGuiDebug()
 
 void BlackHole::ImGuiCinematic()
 {
+    ImGui::Text("Graphics Presets:");
+    for (int i = 0; i < m_presets.size(); i++)
+    {
+        if (ImGui::RadioButton(m_presets[i].name.c_str(), &m_presetSelector, i))
+        {
+            SetGraphicsPreset(m_presets[i]);
+        }
+    }
+    ImGui::Separator();
+    ImGui::Separator();
     ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 10.0f, "Background = %.1f");
     ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
-    ImGui::SliderFloat("##brightnessFromRadius", &m_brightnessFromRadius, 0.0f, 10.0f, "Brightness from Radius = %.2f");
+    ImGui::SliderFloat("##dMdt", &m_dMdt, 0.0f, 10000.0f, "dM/dt = %.0f");
     ImGui::SliderFloat("##blueshiftPower", &m_blueshiftPower, 0.0f, 10.0f, "Blueshift Power = %.2f");
     ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
+    ImGui::Separator();
+    ImGui::Separator();
     if (ImGui::Checkbox("Cinematic Mode", &m_useBloom))
     {
         if (m_useBloom)
         {
-            m_presetSelector = 0;
-            SetGraphicsPreset(interstellarPreset);
         }
         else
         {
-            m_presetSelector = -1;
-            SetGraphicsPreset(defaultPreset);
         }
     }
     if (m_useBloom)
     {
-        ImGui::Separator();
-        ImGui::Text("Graphics Presets:");
-        if (ImGui::RadioButton("Interstellar-esque", &m_presetSelector, 0))
-        {
-            SetGraphicsPreset(interstellarPreset);
-        }
-        if (ImGui::RadioButton("Pale Shadow", &m_presetSelector, 1))
-        {
-            SetGraphicsPreset(shadowPreset);
-        }
-        if (ImGui::RadioButton("Quasi Cel-Shaded", &m_presetSelector, 2))
-        {
-            SetGraphicsPreset(celshadePreset);
-        }
-        if (ImGui::RadioButton("Simple", &m_presetSelector, 3))
-        {
-            SetGraphicsPreset(defaultPreset);
-        }
         ImGui::Separator();
         ImGui::SliderFloat("##BloomThreshold", &m_bloomThreshold, 0.1f, 10.0f, "Bloom Threshold = %.1f");
         ImGui::SliderFloat("##Exposure", &m_exposure, 0.1f, 4.0f, "Exposure = %.2f");
@@ -717,13 +687,18 @@ void BlackHole::SetProjectionMatrix()
 
 void BlackHole::SetGraphicsPreset(const graphicsPreset &preset)
 {
+    m_diskInnerRadius = preset.innerRadius;
+    m_a = preset.a;
+    m_Tmax = preset.temp;
+    m_diskAbsorption = preset.diskAbsorption;
+    m_bloomBackgroundMultiplier = preset.backgroundBrightness;
+    m_bloomDiskMultiplier = preset.diskBrightness;
+    m_dMdt = preset.dMdt;
+    m_blueshiftPower = preset.blueshiftPOW;
+    m_brightnessFromDiskVel = preset.diskDopplerBrightness;
     m_bloomThreshold = preset.bloomThreshold;
-    m_bloomBackgroundMultiplier = preset.bloomBackgroundMultiplier;
-    m_bloomDiskMultiplier = preset.bloomDiskMultiplier;
     m_exposure = preset.exposure;
     m_gamma = preset.gamma;
-    m_brightnessFromRadius = preset.brightnessFromRadius;
-    m_brightnessFromDiskVel = preset.brightnessFromDiskVel;
 }
 
 void BlackHole::SetShader(const std::string& filePath)

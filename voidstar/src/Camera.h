@@ -70,7 +70,7 @@ class Camera
 		glm::vec3 m_Right = m_cameraRot * m_originalRight;
 		glm::vec3 m_EulerAngles = glm::vec3(0.0f, 0.0f, 0.0f);
 		glm::mat4 m_View = glm::lookAt(m_cameraPos, m_cameraPos + m_Look, m_Up);
-		float m_FOV = 60.0f; // in degrees
+		float m_FOV = 40.0f; // in degrees
 		glm::mat4 m_Proj = glm::perspective(glm::radians(m_FOV), 16.0f / 9.0f, 0.1f, 1000.0f);
 
 };

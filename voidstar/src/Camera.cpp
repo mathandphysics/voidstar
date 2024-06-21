@@ -63,6 +63,7 @@ void Camera::DebugGUI()
 	ImGui::Text("Position.y = %.3f", (float)m_cameraPos.y);
 	ImGui::Text("Position.z = %.3f", (float)m_cameraPos.z);
 	ImGui::Separator();
+	ImGui::Separator();
 	ImGui::Text("Look.x = %.3f", (float)m_Look.x);
 	ImGui::Text("Look.y = %.3f", (float)m_Look.y);
 	ImGui::Text("Look.z = %.3f", (float)m_Look.z);
@@ -85,6 +86,8 @@ void Camera::DebugGUI()
 	ImGui::Text("m_cameraRot.y = %.3f", m_cameraRot.y);
 	ImGui::Text("m_cameraRot.z = %.3f", m_cameraRot.z);
 	ImGui::Text("m_cameraRot.w = %.3f", m_cameraRot.w);
+	ImGui::Separator();
+	ImGui::Separator();
 	if (ImGui::Checkbox("Use Euler Angles", &m_UseEulerAngles))
 	{
 		ToggleEulerAngles();

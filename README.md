@@ -61,7 +61,7 @@ Mouse Scroll : Change Movement Speed
 
 
 ### Compiling
-#### Visual Studio + vcpkg
+#### Visual Studio + vcpkg on Windows
 
 Use vcpkg to install the following:
 
@@ -80,12 +80,14 @@ And make sure you've already used `vcpkg integrate install` so that Visual Studi
 Then just open the solution file in Visual Studio and compile.
 
 
-### Credits, Inspirations, and References
-
-- This project was conceived of after Stephen Hawking died when I began writing the underlying 3D renderer specifically for a black hole project.  I was then further inspired by the first photo of a black hole published by the Event Horizon Telescope Collaboration.  I finally got around to seeing the movie Interstellar in 2023 and was motivated to publish this project to github.
+### Credits
 
 - The skybox image of the Milky Way galaxy is thanks to the [European Space Agency](https://sci.esa.int/web/gaia/-/the-colour-of-the-sky-from-gaia-s-early-data-release-3-equirectangular-projection)
-
-- The accretion disk texture is from [this](https://github.com/rantonels/starless) excellent non-realtime black hole raytracer by Riccardo Antonelli.
-
+- "Einstein Gravity in a Nutshell" by Zee
+- "Gravitation" by Misner, Thorne, and Wheeler
+- ["The Kerr spacetime: A brief introduction"](https://arxiv.org/abs/0706.0622) by Matt Visser (2008)
 - The [blog](https://michaelmoroz.github.io/TracingGeodesics/) by Mykhailo Moroz was very helpful with the Hamiltonian dynamics.
+- ["Disk-accretion onto a black hole"](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P/abstract) by Page and Thorne (1973)
+- ["Detecting Accretion Disks in Active Galactic Nuclei"](https://ui.adsabs.harvard.edu/abs/1997PASJ...49..159F/abstract) by Fanton, et al (1997)
+- ["Line shifts in accretion disks - the case of Fe Ka"](https://arxiv.org/abs/1601.02389) by Jovanovic, et al (2016)
+- ["Gravitational Lensing by Spinning Black Holes in Astrophysics, and in the Movie Interstellar"](https://arxiv.org/abs/1502.03808) by James et al (2015)

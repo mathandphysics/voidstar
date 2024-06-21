@@ -647,9 +647,9 @@ void BlackHole::ImGuiCinematic()
     }
     ImGui::Separator();
     ImGui::Separator();
-    ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 10.0f, "Background = %.1f");
+    ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 1.0f, "Background = %.2f");
     ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
-    ImGui::SliderFloat("##dMdt", &m_dMdt, 0.0f, 10000.0f, "dM/dt = %.0f");
+    ImGui::SliderFloat("##dMdt", &m_dMdt, 0.0f, 30000.0f, "dM/dt = %.0f");
     ImGui::SliderFloat("##blueshiftPower", &m_blueshiftPower, 0.0f, 10.0f, "Blueshift Power = %.2f");
     ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
     ImGui::Separator();
@@ -689,6 +689,7 @@ void BlackHole::SetGraphicsPreset(const graphicsPreset &preset)
 {
     m_diskInnerRadius = preset.innerRadius;
     m_a = preset.a;
+    CalculateISCO();
     m_Tmax = preset.temp;
     m_diskAbsorption = preset.diskAbsorption;
     m_bloomBackgroundMultiplier = preset.backgroundBrightness;
@@ -696,6 +697,7 @@ void BlackHole::SetGraphicsPreset(const graphicsPreset &preset)
     m_dMdt = preset.dMdt;
     m_blueshiftPower = preset.blueshiftPOW;
     m_brightnessFromDiskVel = preset.diskDopplerBrightness;
+    m_useBloom = preset.useBloom;
     m_bloomThreshold = preset.bloomThreshold;
     m_exposure = preset.exposure;
     m_gamma = preset.gamma;

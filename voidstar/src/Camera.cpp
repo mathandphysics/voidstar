@@ -92,6 +92,10 @@ void Camera::DebugGUI()
 	{
 		ToggleEulerAngles();
 	}
+	if (ImGui::SliderFloat("##FOV", &m_FOV, 20.0f, 150.0f, "FOV = %.1f"))
+	{
+		SetProj();
+	}
 }
 #endif
 

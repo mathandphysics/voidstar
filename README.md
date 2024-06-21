@@ -2,7 +2,7 @@
 ## A Real-Time Black Hole Ray Tracer
 
 <p><code>void*</code> is a real-time black hole ray tracer written in C++ with OpenGL.
-Fly around and observe a spinning black hole with accretion disk against the optional backdrop of
+Fly around and observe a physically accurate spinning black hole with accretion disk against the optional backdrop of
 the Milky Way galaxy.</p>
 
 ![Cinematic](voidstar/docs/images/cinematic.jpeg)
@@ -35,13 +35,13 @@ the accretion disk and bottom of the accretion disk are coloured differently.</p
 
 ### Other Screenshots
 
-![Main shot](voidstar/docs/images/mainshot.jpeg)
+![Main shot](voidstar/docs/images/interstellar.jpeg)
 
 ![Closeup Debug](voidstar/docs/images/closeup_debug.jpeg)
 
 ![Above Debug](voidstar/docs/images/above_debug.jpeg)
 
-![Without Lensing](voidstar/docs/images/without_lensing.jpeg)
+![Without Lensing](voidstar/docs/images/flat.jpeg)
 
 
 ### Controls
@@ -80,7 +80,7 @@ And make sure you've already used `vcpkg integrate install` so that Visual Studi
 Then just open the solution file in Visual Studio and compile.
 
 
-### Credits
+### References
 
 - The skybox image of the Milky Way galaxy is thanks to the [European Space Agency](https://sci.esa.int/web/gaia/-/the-colour-of-the-sky-from-gaia-s-early-data-release-3-equirectangular-projection)
 - "Einstein Gravity in a Nutshell" by Zee

@@ -77,5 +77,6 @@
     <Image Include="docs\images\closeup_debug.jpeg" />
     <Image Include="docs\images\mainshot.jpeg" />
     <Image Include="docs\images\without_lensing.jpeg" />
+    <Image Include="res\icon\voidstar.ico" />
   </ItemGroup>
 </Project>

@@ -1075,10 +1075,6 @@ vec3 TemperatureToRGB(in float temperature) {
             vec3(-2666.3474220535695, -2173.1012343082230, 2575.2827530017594),
             vec3(0.55995389139931482, 0.70381203140554553, 1.8993753891711275));
     vec3 colour = mix(clamp(vec3(m[0] / (vec3(temperature) + m[1]) + m[2]), vec3(0.0), vec3(1.0)), vec3(1.0), smoothstep(1000.0, 0.0, temperature));
-    if (temperature < 1000.0)
-    {
-        colour *= (temperature / 1000.0);
-    }
     return colour;
 }
 
@@ -1089,7 +1085,7 @@ float f(const in float r, const in float a)
     // From "Disk-accretion onto a black hole" by Page and Thorne (1973).
     if (r < u_risco)
     {
-        return 0.0;
+        return 1.0;
     }
     float pi = 3.14159265359;
 
@@ -1120,12 +1116,8 @@ float observedTemperature(const float r, const float a, const float blueshift)
     // (49/36)*R_isco is the approximate radial distance where the accretion disk attains its maximum brightness / temperature.
     float r_max = (49.0 / 36.0) * u_risco;
 
-    // This r-mapping is a hack to make the disc look nice when the disk's inner radius doesn't match the ISCO.
-    // Of course, this has no basis in reality.
-    float mappedr = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
-
     // Realistic value for u_Tmax is roughly 10000K.
-    return blueshift * u_Tmax * pow(f(mappedr, a) * r_max / (mappedr * f(r_max, a)), 1.0 / 4.0);
+    return blueshift * u_Tmax * pow(f(r, a) * r_max / (r * f(r_max, a)), 1.0 / 4.0);
 }
 
 vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previousy, const in float r, 
@@ -1149,7 +1141,6 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
     else
     {
         // Can do multiple noise texture samples here and combine them.
-        //diskSample = vec3(1.0) * (0.5 + 0.5 * sampleNoiseTexture(planeIntersectionPoint.yzw));
         diskSample = vec3(1.0) * sampleNoiseTexture(planeIntersectionPoint.yzw);
     }
 
@@ -1163,11 +1154,13 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // for the same reason.
 #ifdef INSIDE_HORIZON
         diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
-        diskVel /= sqrt(-dot(invmetric(vec4(0.0, u_cameraPos)) * diskVel, diskVel));
 #else
         diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
-        diskVel /= sqrt(-dot(invmetric(vec4(0.0, u_cameraPos)) * diskVel, diskVel));
+
 #endif
+        // Ensure diskVel is normalized, otherwise the dot product produces incorrect results for g.
+        diskVel /= sqrt(-dot(metric(vec4(diskIntersectionPoint[0])) * diskVel, diskVel));
+
         // g is the energy/frequency shift aka the Doppler effect.
         // Note that we actually want to compute the sum dx_i/dt * dy^i/dt, where x is the light ray's position and y is the
         // disk particle's position.  We are using momentum coordinates for the light, so we'd need to multiply by the
@@ -1176,9 +1169,13 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // See, e.g. Gravitation by Misner, Thorne, and Wheeler, page 64.
         float g = 1.0 / dot(diskIntersectionPoint[1], diskVel);
 
+        // This r-mapping is a hack to make the disc look nice when the disk's inner radius doesn't match the ISCO.
+        // Of course, this has no basis in reality.
+        float mappedr = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
+
         // u_blueshiftPower = 1.0 is physically correct.
         float blueshift = pow(g, u_blueshiftPower);
-        temperature = observedTemperature(r, a, blueshift);
+        temperature = observedTemperature(mappedr, a, blueshift);
 
         // u_brightnessFromVel = 4.0 is physically correct.
         // Needs to be clamped because the blueshift near the horizon and inside the horizon are too extreme otherwise and
@@ -1192,7 +1189,7 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // They called it the time-averaged flux of radiant energy / (time * area)
         // 10000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
         // in a steady disk.
-        brightnessFromRadius = clamp(u_dMdt * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
+        brightnessFromRadius = u_dMdt * (f(mappedr, a) / r - ((r - u_InnerRadius) / (u_OuterRadius - u_InnerRadius)) * (f(u_OuterRadius, a) / u_OuterRadius));
         // 
         // Instead, we can also use a simple power law as in https://arxiv.org/pdf/1601.02389.
         // They call this the emissivity: \epsilon(r) \propto r^-q, where q is called the emissivity index.
@@ -1213,9 +1210,9 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
         // The brighter the disk is at the intersection point, the higher the absorption.
         //brightnessFromRadius = clamp(10000.0 * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
-        brightnessFromRadius = clamp(700.0 * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
-        float absorptionNoise = sampleNoiseTexture(-planeIntersectionPoint.yzw) * brightnessFromRadius;
-        float absorption = u_diskAbsorption * absorptionNoise;
+        float absorptionDropOff = clamp(700.0 * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
+        float absorptionNoise = sampleNoiseTexture(-planeIntersectionPoint.yzw);
+        float absorption = u_diskAbsorption * absorptionNoise * absorptionDropOff;
         T *= exp(-absorption);
     }
     return rayCol;

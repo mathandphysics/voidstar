@@ -88,6 +88,7 @@
     <Image Include="docs\images\closeup_debug.jpeg" />
     <Image Include="docs\images\mainshot.jpeg" />
     <Image Include="docs\images\without_lensing.jpeg" />
+    <Image Include="res\icon\voidstar.ico" />
     <Image Include="res\textures\accretion_disk.jpg" />
     <Image Include="res\textures\nx.png" />
     <Image Include="res\textures\ny.png" />

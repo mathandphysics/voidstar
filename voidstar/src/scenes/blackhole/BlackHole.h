@@ -102,9 +102,9 @@ private:
 	float m_brightnessFromDiskVel = 4.0f;
 
 	int m_presetSelector = 0;
-	std::vector<graphicsPreset> m_presets = { { "Warm", 4.5f, 0.6f, 2000.0f, 2.5f, 0.0f, 6.0f, 10000.0f, 1.0f, 4.0f, true, 1.6f, 0.5f, 0.5f },
-		{ "Interstellar", 4.5f, 0.6f, 4500.0f, 3.0f, 0.0f, 10.0f, 1000.0f, 0.0f, 1.0f, true, 0.1f, 1.0f, 0.5f },
-		{ "Realistic", 3.85f, 0.6f, 10000.0f, 3.0f, 0.0f, 1.0f, 2000.0f, 1.0f, 4.0f, true, 4.0f, 1.0f, 0.5f },
+	std::vector<graphicsPreset> m_presets = { { "Warm", 4.5f, 0.6f, 2000.0f, 7.0f, 0.0f, 1.0f, 15000.0f, 1.0f, 6.0f, false, 1.6f, 0.5f, 0.5f },
+		{ "Interstellar", 4.5f, 0.6f, 4500.0f, 7.0f, 0.0f, 1.0f, 15000.0f, 0.0f, 1.0f, true, 0.1f, 1.0f, 0.5f },
+		{ "Realistic", 3.85f, 0.6f, 10000.0f, 3.0f, 0.0f, 1.0f, 5000.0f, 1.0f, 4.0f, true, 4.0f, 1.0f, 0.5f },
 	};
 
 	bool m_ImGuiFirstTime = true;

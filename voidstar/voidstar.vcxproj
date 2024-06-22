@@ -71,16 +71,11 @@
   </ItemGroup>
   <ItemGroup>
     <Font Include="res\fonts\Cousine-Regular.ttf" />
-    <Font Include="res\fonts\DroidSans.ttf" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="res\shaders\BlackHoleFlat.shader" />
-    <None Include="res\shaders\BlackHoleFlatSpacetime.shader" />
-    <None Include="res\shaders\BlackHoleLensing.shader" />
     <None Include="res\shaders\FinalBloom.shader" />
     <None Include="res\shaders\GaussianBlur.shader" />
     <None Include="res\shaders\KerrBlackHole.shader" />
-    <None Include="res\shaders\TextureToScreen.shader" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="docs\images\above_debug.jpeg" />
@@ -92,10 +87,6 @@
     <Image Include="docs\images\mainshot.jpeg" />
     <Image Include="docs\images\without_lensing.jpeg" />
     <Image Include="res\icon\voidstar.ico" />
-    <Image Include="res\icon\voidstar2.ico" />
-    <Image Include="res\icon\voidstar3.ico" />
-    <Image Include="res\textures\accretion_disk.jpg" />
-    <Image Include="res\textures\Blue_Marble_2002.png" />
     <Image Include="res\textures\nx.png" />
     <Image Include="res\textures\ny.png" />
     <Image Include="res\textures\nz.png" />

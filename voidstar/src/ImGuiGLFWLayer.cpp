@@ -62,7 +62,6 @@ void ImGuiSetup(GLFWwindow*& window)
 
     // Load Fonts
     io.Fonts->AddFontFromFileTTF("res/fonts/Cousine-Regular.ttf", 20.0f);
-    // Both of these fonts also look nice and scale well.
 }
 
 

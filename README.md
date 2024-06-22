@@ -13,7 +13,7 @@ from the galaxy when the camera is located inside the event horizon.</p>
 <p><code>void*</code> ray marches along light-like geodesics by using Hamilton's equations applied 
 to General Relativity.  Namely, the Hamiltonian is given by</p>
 
-$$H(x^{\alpha}, p_{\beta}) = \frac{1}{2}g^{\mu \nu}(x^{\alpha})p_{\mu}p_{\nu}$$
+$$H(x, p) = \frac{1}{2}g^{\mu \nu}(x)p_{\mu}p_{\nu}$$
 
 <p>For position $x$, momentum $p$, and metric tensor $g$.  The system of 8
 differential equations is</p>

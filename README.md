@@ -26,8 +26,8 @@ $$
 $$
 
 <p>where $\lambda$ parametrizes the geodesic.  These equations are solved numerically.
-The integration method is generic and can support any metric tensor.  The Kerr
-and Minkowski metrics are currently included.</p>
+Multiple integration methods from the Runge-Kutta family are implemented and can support
+any metric tensor.  The Kerr and Minkowski metrics are currently included.</p>
 
 <p>A "cinematic mode" is included with lighting options to create neat images.
 Additionally, <code>void*</code> can draw debug colouring on both the accretion disk and

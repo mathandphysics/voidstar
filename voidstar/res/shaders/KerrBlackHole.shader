@@ -1026,6 +1026,7 @@ vec3 drawDebugDiskTexture(const in vec3 p)
 
 float sampleNoiseTexture(const in vec3 p)
 {
+    // Inspired by https://www.youtube.com/watch?v=XWv1Ajc3tfU
     vec3 col = vec3(0.0);
     // To spherical coordinates
     float r = length(p.xz);
@@ -1053,7 +1054,6 @@ float sampleNoiseTexture(const in vec3 p)
     float amplitude = 0.6;
     float noise = multifractal_noise3D(xyz, octaves, amplitude, lacunarity, dimension);
 
-    //return pow(noise, 1.5);
     return noise;
 }
 
@@ -1156,7 +1156,6 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
 #else
         diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
-
 #endif
         // Ensure diskVel is normalized, otherwise the dot product produces incorrect results for g.
         diskVel /= sqrt(-dot(metric(vec4(diskIntersectionPoint[0])) * diskVel, diskVel));

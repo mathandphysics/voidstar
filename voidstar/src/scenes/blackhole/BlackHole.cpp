@@ -97,15 +97,6 @@ void BlackHole::CreateScreenQuad()
 void BlackHole::LoadTextures()
 {
     // Cube map for skybox
-    // Ordering of faces must be: xpos, xneg, ypos, yneg, zpos, zneg.
-    m_cubeTexturePaths = {
-        "res/textures/px.png",
-        "res/textures/nx.png",
-        "res/textures/py.png",
-        "res/textures/ny.png",
-        "res/textures/pz.png",
-        "res/textures/nz.png"
-    };
     m_cubemap.SetCubeMap(m_cubeTexturePaths);
 
     // Set disk texture path here, if desired.
@@ -136,12 +127,8 @@ void BlackHole::CompileBHShaders()
 void BlackHole::CompilePostShaders() const
 {
     // Load and compile the post-processing shaders and set uniforms.
-    std::shared_ptr<Shader> texture_to_screen_shader = Renderer::Get().GetShader(m_textureToScreenShaderPath);
-    texture_to_screen_shader->Bind();
-    texture_to_screen_shader->SetUniform1i("screenTexture", m_screenTextureSlot);
     GLint vp[4];
     GLCall(glGetIntegerv(GL_VIEWPORT, vp));
-    texture_to_screen_shader->SetUniform4f("u_ScreenSize", (float)vp[0], (float)vp[1], (float)vp[2], (float)vp[3]);
 
     std::shared_ptr<Shader> blur_shader = Renderer::Get().GetShader(m_gaussianBlurShaderPath);
     blur_shader->Bind();
@@ -389,6 +376,10 @@ void BlackHole::CalculateISCO()
     float z1 = 1.0f + std::powf(1.0f - chi*chi, 1.0f/3.0f) * (std::powf(1.0f + chi, 1.0f/3.0f) + std::powf(1.0f - chi, 1.0f/3.0f));
     float z2 = std::powf(3.0f*chi*chi + z1*z1, 1.0f / 2.0f);
     m_risco = m_mass * (3.0f + z2 - std::powf((3.0f-z1)*(3.0f+z1+2.0f*z2), 1.0f / 2.0f));
+    if (m_diskInnerRadius < m_risco)
+    {
+        m_diskInnerRadius = m_risco;
+    }
 }
 
 void BlackHole::OnImGuiRender()
@@ -544,7 +535,7 @@ void BlackHole::ImGuiBHProperties()
     {
         m_diskInnerRadius = m_risco;
     }
-    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 10.0f * m_radius,
+    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 20.0f * m_radius,
         "Outer Disk Radius = %.1f");
     if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.01f, 0.99f), "a = %.2f"))
     {

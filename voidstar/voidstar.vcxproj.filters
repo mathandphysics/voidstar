@@ -78,5 +78,11 @@
     <Image Include="docs\images\mainshot.jpeg" />
     <Image Include="docs\images\without_lensing.jpeg" />
     <Image Include="res\icon\voidstar.ico" />
+    <Image Include="docs\images\cinematic.jpeg" />
+    <Image Include="docs\images\flat.jpeg" />
+    <Image Include="docs\images\interstellar.jpeg" />
+    <Image Include="res\icon\voidstar2.ico" />
+    <Image Include="res\icon\voidstar3.ico" />
+    <Image Include="res\textures\Blue_Marble_2002.png" />
   </ItemGroup>
 </Project>

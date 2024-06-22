@@ -85,11 +85,17 @@
   <ItemGroup>
     <Image Include="docs\images\above_debug.jpeg" />
     <Image Include="docs\images\afar.jpeg" />
+    <Image Include="docs\images\cinematic.jpeg" />
     <Image Include="docs\images\closeup_debug.jpeg" />
+    <Image Include="docs\images\flat.jpeg" />
+    <Image Include="docs\images\interstellar.jpeg" />
     <Image Include="docs\images\mainshot.jpeg" />
     <Image Include="docs\images\without_lensing.jpeg" />
     <Image Include="res\icon\voidstar.ico" />
+    <Image Include="res\icon\voidstar2.ico" />
+    <Image Include="res\icon\voidstar3.ico" />
     <Image Include="res\textures\accretion_disk.jpg" />
+    <Image Include="res\textures\Blue_Marble_2002.png" />
     <Image Include="res\textures\nx.png" />
     <Image Include="res\textures\ny.png" />
     <Image Include="res\textures\nz.png" />

@@ -110,13 +110,9 @@ private:
 	bool m_ImGuiFirstTime = true;
 	bool m_ImGuiAllowMoveableDock = true;
 
-	std::string m_flatSpacetimeShaderPath = "res/shaders/BlackHoleFlatSpacetime.shader";
 	std::string m_kerrBlackHoleShaderPath = "res/shaders/KerrBlackHole.shader";
-	std::string m_gravitationalLensingShaderPath = "res/shaders/BlackHoleLensing.shader";
-	std::string m_flatShaderPath = "res/shaders/BlackHoleFlat.shader";
 	std::string m_gaussianBlurShaderPath = "res/shaders/GaussianBlur.shader";
 	std::string m_BloomShaderPath = "res/shaders/FinalBloom.shader";
-	std::string m_textureToScreenShaderPath = "res/shaders/TextureToScreen.shader";
 	int m_shaderSelector = 0;
 	std::string m_selectedShaderString = m_kerrBlackHoleShaderPath;
 	std::vector<std::string> m_vertexDefines = {};
@@ -127,7 +123,15 @@ private:
 	std::shared_ptr<Framebuffer> m_pingFBO;
 	std::shared_ptr<Framebuffer> m_pongFBO;
 
-	std::vector<std::string> m_cubeTexturePaths;
+	std::vector<std::string> m_cubeTexturePaths = {
+		// Ordering of faces must be: xpos, xneg, ypos, yneg, zpos, zneg.
+		"res/textures/px.png",
+		"res/textures/nx.png",
+		"res/textures/py.png",
+		"res/textures/ny.png",
+		"res/textures/pz.png",
+		"res/textures/nz.png"
+	};
 	TextureCubeMap m_cubemap;
 	std::string m_diskTexturePath;
 	std::shared_ptr<Texture2D> m_diskTexture;

@@ -784,7 +784,7 @@ mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize, 
         stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
 #endif
 #ifdef MINKOWSKI
-        stepsize = min(0.01 + metricDistance(xp[0]) * 1.0 / 5.0, stepsize);
+        stepsize = 0.01 + metricDistance(xp[0]) / 5.0;
 #endif
 
 #if (ODE_SOLVER == 2)
@@ -1078,18 +1078,18 @@ vec3 TemperatureToRGB(in float temperature) {
     return colour;
 }
 
-float f(const in float r, const in float a)
+float f(const in float r)
 {
     // Uses the black hole's mass and spin, along with a point on the equatorial accretion disk that is r away from the
     // center of the black hole, to calculate f, a function used in the calculation of the time-averaged flux of radiant energy.
     // From "Disk-accretion onto a black hole" by Page and Thorne (1973).
     if (r < u_risco)
     {
-        return 1.0;
+        return 0.0;
     }
     float pi = 3.14159265359;
 
-    float astar = a / u_BHMass;
+    float astar = u_a / u_BHMass;
     float x = sqrt(r / u_BHMass);
     float x0 = sqrt(u_risco / u_BHMass);
     // x1, x2, x3 are the roots of x^3 - 3*x + 2*astar = 0.
@@ -1110,18 +1110,17 @@ float f(const in float r, const in float a)
         - (x3numer / x3denom) * log((x - x3) / (x0 - x3)));
 }
 
-float observedTemperature(const float r, const float a, const float blueshift)
+float observedTemperature(const float r, const float blueshift)
 {
     // from "Detecting Accretion Disks in Active Galactic Nuclei" by Fanton, et al (1997).
     // (49/36)*R_isco is the approximate radial distance where the accretion disk attains its maximum brightness / temperature.
     float r_max = (49.0 / 36.0) * u_risco;
 
     // Realistic value for u_Tmax is roughly 10000K.
-    return blueshift * u_Tmax * pow(f(r, a) * r_max / (r * f(r_max, a)), 1.0 / 4.0);
+    return blueshift * u_Tmax * pow(f(r) * r_max / (r * f(r_max)), 1.0 / 4.0);
 }
 
-vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previousy, const in float r, 
-    const in float a, inout float T, const in float bloomDiskMultiplier)
+vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previousy, const in float r, inout float T)
 {
     vec3 rayCol;
     vec3 diskSample;
@@ -1157,9 +1156,9 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // the light momentum or the disk velocity, so we just do it here for simplicity.  We flip observerVel's time term
         // for the same reason.
 #ifdef INSIDE_HORIZON
-        diskVel = vec4((r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+        diskVel = vec4((r + u_a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * u_a * sqrt(u_BHMass * r));
 #else
-        diskVel = vec4(-(r + a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * a * sqrt(u_BHMass * r));
+        diskVel = vec4(-(r + u_a * sqrt(u_BHMass / r)), vec3(-planeIntersectionPoint.w, 0.0, planeIntersectionPoint.y) * sqrt(u_BHMass / r)) / sqrt(r * r - 3.0 * r * u_BHMass + 2.0 * u_a * sqrt(u_BHMass * r));
 #endif
         // Ensure diskVel is normalized, otherwise the dot product produces incorrect results for g.
         diskVel /= sqrt(-dot(metric(vec4(diskIntersectionPoint[0])) * diskVel, diskVel));
@@ -1174,7 +1173,7 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
 
         // u_blueshiftPower = 1.0 is physically correct.
         float blueshift = pow(g, u_blueshiftPower);
-        temperature = observedTemperature(mappedr, a, blueshift);
+        temperature = observedTemperature(mappedr, blueshift);
 
         // u_brightnessFromVel = 4.0 is physically correct.
         // Needs to be clamped because the blueshift near the horizon and inside the horizon are too extreme otherwise and
@@ -1187,22 +1186,22 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // This is F(r) from "Disk-accretion onto a black hole" by Page and Thorne (1973)
         // They called it the time-averaged flux of radiant energy / (time * area)
         // \dot{M} = dM/dt is assumed to be constant in a steady disk.
-        //brightnessFromRadius = u_dMdt * (f(r, a) / r - ((r - u_InnerRadius) / (u_OuterRadius - u_InnerRadius)) * (f(u_OuterRadius, a) / u_OuterRadius));
+        //brightnessFromRadius = u_dMdt * (f(r) / r - ((r - u_InnerRadius) / (u_OuterRadius - u_InnerRadius)) * (f(u_OuterRadius) / u_OuterRadius));
         // brightnessFromRadius uses mappedr instead of r in order to have sensible looking results when the inner radius
         // is not equal to r_ISCO.
-        brightnessFromRadius = u_dMdt * (f(mappedr, a) / mappedr - ((mappedr - u_risco) / (u_OuterRadius - u_risco)) * (f(u_OuterRadius, a) / u_OuterRadius));
+        brightnessFromRadius = u_dMdt * (f(mappedr) / mappedr - ((mappedr - u_risco) / (u_OuterRadius - u_risco)) * (f(u_OuterRadius) / u_OuterRadius));
         // 
         // Instead, we can also use a simple power law as in https://arxiv.org/pdf/1601.02389.
         // They call this the emissivity: \epsilon(r) \propto r^-q, where q is called the emissivity index.
         // A common value for q is 2.5.
         //brightnessFromRadius = clamp(u_dMdt * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
 
-        emission = brightnessFromRadius * brightnessFromVel * bloomDiskMultiplier * diskSample * TemperatureToRGB(temperature);
+        emission = brightnessFromRadius * brightnessFromVel * u_bloomDiskMultiplier * diskSample * TemperatureToRGB(temperature);
         rayCol = T * emission;
     }
     else
     {
-        emission = diskSample * bloomDiskMultiplier;
+        emission = diskSample * u_bloomDiskMultiplier;
         rayCol = T * emission;
     }
     if (u_transparentDisk && !u_useDebugDiskTexture && T > 0.05)
@@ -1210,11 +1209,16 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
         vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
         // The brighter the disk is at the intersection point, the higher the absorption.
-        //brightnessFromRadius = clamp(10000.0 * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
+        //brightnessFromRadius = clamp(10000.0 * ((f(r) / r) - (f(u_OuterRadius) / u_OuterRadius)), 0.0, 1.0);
         float absorptionDropOff = clamp(700.0 * (pow(mappedr, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
         float absorptionNoise = sampleNoiseTexture(-planeIntersectionPoint.yzw);
         float absorption = u_diskAbsorption * absorptionNoise * absorptionDropOff;
         T *= exp(-absorption);
+    }
+    else if (u_useDebugDiskTexture)
+    {
+        // No transparency.
+        T = 0.0;
     }
     return rayCol;
 }
@@ -1227,22 +1231,14 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
 void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk)
 {
     vec3 dir;
-    float cameraDist;
     float dist;
     float diskDist;
     float T = 1.0;  // Transmittance
-    float a = 0.0;
-#ifdef KERR
-    a = u_a;
-#else
-    a = 0.0;
-#endif
-    float horizon = u_BHMass + sqrt(u_BHMass * u_BHMass - a * a); // G = c = 1
+    float horizon = u_BHMass + sqrt(u_BHMass * u_BHMass - u_a * u_a); // G = c = 1
     mat2x4 diskIntersectionPoint;
     mat2x4 sphereIntersectionPoint;
     bool hitSphere = false;
     bool hitInfinity = false;
-
 
     // x and p are the spacetime position and momentum coordinates.
     // p_i = g_ij * dx^j/dlambda
@@ -1251,7 +1247,6 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     xp[0] = vec4(0.0, cameraPos);
     mat2x4 previousxp;
     dist = metricDistance(xp[0]);
-    cameraDist = dist;
 #ifdef INSIDE_HORIZON
     // Inside the event horizon, we need to change the metric to outgoing coordinates.  We adjust p accordingly.
     xp[1] = metric(xp[0]) * vec4(-1.0, rayDir);
@@ -1260,19 +1255,6 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
 #endif
 
     vec3 diskSample = vec3(0.0);
-
-    float bloomDiskMultiplier;
-    float bloomBackgroundMultiplier;
-    if (u_bloom)
-    {
-        bloomDiskMultiplier = u_bloomDiskMultiplier;
-        bloomBackgroundMultiplier = u_bloomBackgroundMultiplier;
-    }
-    else
-    {
-        bloomDiskMultiplier = min(1.0, u_bloomDiskMultiplier);
-        bloomBackgroundMultiplier = min(1.0, u_bloomBackgroundMultiplier);
-    }
 
     float stepSize;
     float oldStepSize;
@@ -1288,7 +1270,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     mat2x4 FSAL = fasterxpupdate(xp, stepSize) / stepSize;
 #endif
 
-    // MAIN LOOP
+    // MAIN RAYMARCH LOOP
     for (int i = 0; i < u_maxSteps; i++)
     {
         previousxp = xp;
@@ -1298,12 +1280,20 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
         xp = integrationStep(xp, stepSize);
         dist = metricDistance(xp[0]);
         oldStepSize = stepSize;
-        stepSize = 0.01 + (dist - horizon) * 1.0 / 10.0;
+#ifdef INSIDE_HORIZON
+        stepSize = dist / (10.0 * horizon);
+#else
+        stepSize = 0.01 + (dist - horizon) / 10.0;
+#endif
 #elif (ODE_SOLVER == 1)
         xp = RK4integrationStep(xp, stepSize);
         dist = metricDistance(xp[0]);
         oldStepSize = stepSize;
-        stepSize = 0.01 + (dist - horizon) * 1.0 / 5.0;
+#ifdef INSIDE_HORIZON
+        stepSize = dist / (10.0 * horizon);
+#else
+        stepSize = 0.01 + (dist - horizon) / 5.0;
+#endif
 #elif (ODE_SOLVER == 2 || ODE_SOLVER == 3)
         xp = adaptiveRKDriver(xp, stepSize, oldStepSize, FSAL);
         dist = metricDistance(xp[0]);
@@ -1324,18 +1314,18 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
                 if (diskDist <= u_OuterRadius && diskDist >= u_InnerRadius)
                 {
                     hitDisk = true;
-                    rayCol += getDiskColour(diskIntersectionPoint, sign(previousxp[0][2]), diskDist, a, T, bloomDiskMultiplier);
-                    if (u_useDebugDiskTexture)
-                    {
-                        // No transparency.
-                        break;
-                    }
+                    rayCol += getDiskColour(diskIntersectionPoint, sign(previousxp[0][2]), diskDist, T);
+                }
+                if (T < 0.05)
+                {
+                    break;
                 }
             }
         }
 
-        // Check if the ray hit the sphere.
-        if (dist < horizon && cameraDist > horizon)
+        // If the camera is outside the horizon, check if the ray hit the sphere.
+#ifndef INSIDE_HORIZON
+        if (dist < horizon)
         {
             hitSphere = true;
             if (u_useDebugSphereTexture)
@@ -1345,16 +1335,16 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
             }
             break;
         }
+#endif
 
         // Check if the ray escaped the black hole and hit the skybox.
         else if (dist > u_drawDistance)
         {
             hitInfinity = true;
             dir = pToDir(xp);
-            rayCol += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
+            rayCol += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * u_bloomBackgroundMultiplier;
             break;
-        }
-        
+        }        
     }
 
     // If the ray went max steps without hitting anything, just cast the ray to the skybox.
@@ -1364,7 +1354,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
         if (dist > horizon)
         {
             dir = pToDir(xp);
-            rayCol += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * bloomBackgroundMultiplier;
+            rayCol += T * texture(skybox, vec3(-dir.x, dir.y, dir.z)).xyz * u_bloomBackgroundMultiplier;
         }
     }
 }

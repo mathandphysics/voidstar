@@ -344,7 +344,6 @@ float BlackHole::CalculateDrawDistance()
                 }
                 else
                 {
-                    m_tolerance = 0.01f;
                     m_maxSteps = 200;
                 }
             }
@@ -457,7 +456,7 @@ void BlackHole::ImGuiSetUpDocking()
     {
         dockspace_flags |= ImGuiDockNodeFlags_NoUndocking | ImGuiDockNodeFlags_NoTabBar;
     }
-    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), dockspace_flags);
+    ImGuiID dockspace_id = ImGui::DockSpaceOverViewport(0U, ImGui::GetMainViewport(), dockspace_flags);
 
     if (m_ImGuiFirstTime)
     {
@@ -489,9 +488,18 @@ void BlackHole::ImGuiChooseBH()
     {
         m_selectedShaderString = m_kerrBlackHoleShaderPath;
         SetShader(m_selectedShaderString);
-        m_maxSteps = 200;
         m_a = 0.6f;
         CalculateISCO();
+        CalculateDrawDistance();
+        if (m_insideHorizon)
+        {
+            m_maxSteps = 70;
+            m_tolerance = 0.01f;
+        }
+        else
+        {
+            m_maxSteps = 200;
+        }
     }
     ImGui::SameLine();
     HelpMarker("Accurate rotating black hole using the Kerr metric of General Relativity.  "
@@ -559,19 +567,21 @@ void BlackHole::ImGuiChooseODESolver()
         SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
-    HelpMarker("Least accurate, but fast.");
+    HelpMarker("Least accurate, but fast.  Not recommended for inside of the event horizon.");
     if (ImGui::RadioButton("Classic RK4", &m_ODESolverSelector, 1))
     {
         SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
-    HelpMarker("More accurate than Forward-Euler-Cromer, but it doesn't choose stepsize intelligently.");
+    HelpMarker("More accurate than Forward-Euler-Cromer, but it doesn't choose stepsize intelligently.  Not recommended "
+        "for inside of the event horizon.");
     if (ImGui::RadioButton("Adaptive RK2/3", &m_ODESolverSelector, 2))
     {
         SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
-    HelpMarker("Bogacki-Shampine Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.");
+    HelpMarker("Bogacki-Shampine Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.  Overall "
+        "the best ODE solving method for black holes.");
     if (ImGui::RadioButton("Adaptive RK4/5", &m_ODESolverSelector, 3))
     {
         SetShader(m_selectedShaderString);

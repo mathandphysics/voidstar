@@ -36,6 +36,7 @@ void BlackHole::OnUpdate()
 
     // Set the new draw distance based on camera position.  Also determine whether the camera is inside the event horizon.
     m_drawDistance = CalculateDrawDistance();
+    SetShaderDefines();
 }
 
 void BlackHole::Draw()
@@ -121,7 +122,7 @@ void BlackHole::CompileBHShaders()
 {
     // Load and compile the black hole shaders and set uniforms.
     SetShaderDefines();
-    SetShader(m_kerrBlackHoleShaderPath);
+    SetShader(m_selectedShaderString);
 }
 
 void BlackHole::CompilePostShaders() const
@@ -347,13 +348,12 @@ float BlackHole::CalculateDrawDistance()
                     m_maxSteps = 200;
                 }
             }
-            SetShaderDefines();
         }
         return fmax(70.0f, r + 10.0f);
         break;
     }
     default:
-        // Flat space and classical BH.
+        // Flat space.
         float r = sqrt(glm::dot(p, p));
         m_insideHorizon = (r < 2 * m_mass);
         return fmax(70.0f, r + 10.0f);
@@ -437,6 +437,8 @@ void BlackHole::OnImGuiRender()
 
             ImGui::Separator();
             ImGui::Separator();
+
+            ImGui::Text("Inside Horizon = %s", m_insideHorizon ? "true" : "false");
 
             ImGui::EndTabItem();
         }
@@ -539,6 +541,7 @@ void BlackHole::ImGuiBHProperties()
         "Outer Disk Radius = %.1f");
     if (m_shaderSelector == 0)
     {
+        // Only show a for a Kerr black hole.
         if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.01f, 0.99f), "a = %.2f"))
         {
             CalculateISCO();
@@ -738,6 +741,10 @@ void BlackHole::SetShaderDefines()
         // Minkowski black hole
         m_fragmentDefines.push_back("MINKOWSKI");
         m_fragmentDefines.push_back("ODE_SOLVER " + std::to_string(m_ODESolverSelector));
+        if (m_insideHorizon)
+        {
+            m_fragmentDefines.push_back("INSIDE_HORIZON");
+        }
         break;
     case 3:
         // Classical ray-traced flatspace.

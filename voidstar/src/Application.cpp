@@ -108,7 +108,7 @@ void Application::ImGuiPrintRenderStats()
 {
 	ImGui::Text("Render statistics:");
 	float frameTime = Application::Get().GetFrameTimer().GetAverageDeltaTime();
-	ImGui::Text("FPS: %.2f", 1 / frameTime);
+	ImGui::Text("FPS: %.1f", 1 / frameTime);
 	ImGui::Text("Frame Time: %.4fs", frameTime);
 	float sceneDrawTime = Application::Get().GetCPUTimer().GetAverageDeltaTime();
 	ImGui::Text("CPU Time/frame: %.6fs", sceneDrawTime);

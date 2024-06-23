@@ -784,7 +784,7 @@ mat2x4 adaptiveRKDriver(mat2x4 xp, inout float stepsize, out float oldStepSize, 
         stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
 #endif
 #ifdef MINKOWSKI
-        stepsize = min(0.01 + (metricDistance(xp[0]) - 2.0 * u_BHMass) * 1.0 / 5.0, stepsize);
+        stepsize = min(0.01 + metricDistance(xp[0]) * 1.0 / 5.0, stepsize);
 #endif
 
 #if (ODE_SOLVER == 2)
@@ -1252,15 +1252,12 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     mat2x4 previousxp;
     dist = metricDistance(xp[0]);
     cameraDist = dist;
-    if (cameraDist > horizon)
-    {
-        xp[1] = metric(xp[0]) * vec4(1.0, rayDir);
-    }
-    else
-    {
-        // Inside the event horizon, we need to change the metric to outgoing coordinates.  We adjust p accordingly.
-        xp[1] = metric(xp[0]) * vec4(-1.0, rayDir);
-    }
+#ifdef INSIDE_HORIZON
+    // Inside the event horizon, we need to change the metric to outgoing coordinates.  We adjust p accordingly.
+    xp[1] = metric(xp[0]) * vec4(-1.0, rayDir);
+#else
+    xp[1] = metric(xp[0]) * vec4(1.0, rayDir);
+#endif
 
     vec3 diskSample = vec3(0.0);
 

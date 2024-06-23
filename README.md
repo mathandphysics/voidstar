@@ -39,11 +39,11 @@ the accretion disk and bottom of the accretion disk are coloured differently.</p
 
 ![Main shot](voidstar/docs/images/interstellar.jpeg)
 
-<p>Disk and sphere debug texture close-up of a near extremal black hole ($a=0.99$).</p>
+<p>Disk and sphere debug texture close-up of a near-extremal black hole ($M=1$, $a=0.99$).</p>
 
 ![Closeup Debug](voidstar/docs/images/closeup_debug.jpeg)
 
-<p>Top-down view with disk and sphere debug of a near extremal black hole ($a=0.99$).  Also showing the options menu.</p>
+<p>Top-down view with disk and sphere debug of a near-extremal black hole ($M=1$, $a=0.99$).  Also showing the options menu.</p>
 
 ![Above Debug](voidstar/docs/images/above_debug.jpeg)
 
@@ -95,7 +95,7 @@ Then just open the solution file in Visual Studio and compile.
 - "Gravitation" by Misner, Thorne, and Wheeler
 - ["The Kerr spacetime: A brief introduction"](https://arxiv.org/abs/0706.0622) by Matt Visser (2008)
 - The [blog](https://michaelmoroz.github.io/TracingGeodesics/) by Mykhailo Moroz
-- ["Disk-accretion onto a black hole"](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P/abstract) by Page and Thorne (1973)
+- ["Disk-accretion onto a black hole"](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P/abstract) by Page and Thorne (1974)
 - ["Detecting Accretion Disks in Active Galactic Nuclei"](https://ui.adsabs.harvard.edu/abs/1997PASJ...49..159F/abstract) by Fanton, et al (1997)
 - ["Line shifts in accretion disks - the case of Fe Ka"](https://arxiv.org/abs/1601.02389) by Jovanovic, et al (2016)
 - ["Gravitational Lensing by Spinning Black Holes in Astrophysics, and in the Movie Interstellar"](https://arxiv.org/abs/1502.03808) by James et al (2015)

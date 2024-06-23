@@ -35,13 +35,20 @@ sphere in order to better make sense of what you're looking at.  By default, the
 the accretion disk and bottom of the accretion disk are coloured differently.</p>
 
 ### Other Screenshots
-Interstellar-esque
+<p>Interstellar-esque</p>
+
 ![Main shot](voidstar/docs/images/interstellar.jpeg)
-Disk debug texture close-up
+
+<p>Disk and sphere debug texture close-up of a near extremal black hole ($a=0.99$).</p>
+
 ![Closeup Debug](voidstar/docs/images/closeup_debug.jpeg)
-Top-down view with disk and sphere debug
+
+<p>Top-down view with disk and sphere debug of a near extremal black hole ($a=0.99$).  Also showing the options menu.</p>
+
 ![Above Debug](voidstar/docs/images/above_debug.jpeg)
-Minkowski metric (i.e. flat space without gravitational lensing)
+
+<p>Minkowski metric (i.e. flat space without gravitational lensing)</p>
+
 ![Without Lensing](voidstar/docs/images/flat.jpeg)
 
 
@@ -83,11 +90,11 @@ Then just open the solution file in Visual Studio and compile.
 
 ### References
 
-- The skybox image of the Milky Way galaxy is thanks to the [European Space Agency](https://sci.esa.int/web/gaia/-/the-colour-of-the-sky-from-gaia-s-early-data-release-3-equirectangular-projection)
+- The skybox image of the Milky Way galaxy is thanks to the [NASA](https://svs.gsfc.nasa.gov/4851)
 - "Einstein Gravity in a Nutshell" by Zee
 - "Gravitation" by Misner, Thorne, and Wheeler
 - ["The Kerr spacetime: A brief introduction"](https://arxiv.org/abs/0706.0622) by Matt Visser (2008)
-- The [blog](https://michaelmoroz.github.io/TracingGeodesics/) by Mykhailo Moroz was very helpful with the Hamiltonian dynamics.
+- The [blog](https://michaelmoroz.github.io/TracingGeodesics/) by Mykhailo Moroz
 - ["Disk-accretion onto a black hole"](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P/abstract) by Page and Thorne (1973)
 - ["Detecting Accretion Disks in Active Galactic Nuclei"](https://ui.adsabs.harvard.edu/abs/1997PASJ...49..159F/abstract) by Fanton, et al (1997)
 - ["Line shifts in accretion disks - the case of Fe Ka"](https://arxiv.org/abs/1601.02389) by Jovanovic, et al (2016)

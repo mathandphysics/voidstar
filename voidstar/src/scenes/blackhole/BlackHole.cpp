@@ -537,12 +537,14 @@ void BlackHole::ImGuiBHProperties()
     }
     ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 20.0f * m_radius,
         "Outer Disk Radius = %.1f");
-    if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.01f, 0.99f), "a = %.2f"))
+    if (m_shaderSelector == 0)
     {
-        CalculateISCO();
+        if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.01f, 0.99f), "a = %.2f"))
+        {
+            CalculateISCO();
+        }
     }
     ImGui::SliderFloat("##Max Temperature", &m_Tmax, 1000.0f, 20000.0f, "Max Disk Temperature = %.0f");
-    ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 7.0f, "Disk Absorption = %.1f");
     ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, 0.0f, 0.3f, "Disk Rotation Speed = %.3f");
 }
 
@@ -638,11 +640,16 @@ void BlackHole::ImGuiCinematic()
     }
     ImGui::Separator();
     ImGui::Separator();
-    ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, 1.0f, "Background = %.2f");
-    ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, 10.0f, "Disk = %.1f");
+
+    float maxBackgroundMultiplier = m_useBloom ? 10.0f : 1.0f;
+    float maxEmissionMultiplier = m_useBloom ? 10.0f : 1.0f;
+    ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, maxBackgroundMultiplier, "Background = %.2f");
+    ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, maxEmissionMultiplier, "Disk Emission = %.1f");
+    ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 10.0f, "Disk Absorption = %.1f");
     ImGui::SliderFloat("##dMdt", &m_dMdt, 0.0f, 30000.0f, "dM/dt = %.0f");
     ImGui::SliderFloat("##blueshiftPower", &m_blueshiftPower, 0.0f, 10.0f, "Blueshift Power = %.2f");
     ImGui::SliderFloat("##BrightnessFromDiskVel", &m_brightnessFromDiskVel, 0.0f, 10.0f, "Disk Velocity Brightness = %.1f");
+
     ImGui::Separator();
     ImGui::Separator();
     if (ImGui::Checkbox("Cinematic Mode", &m_useBloom))
@@ -652,6 +659,8 @@ void BlackHole::ImGuiCinematic()
         }
         else
         {
+            m_bloomBackgroundMultiplier = (m_bloomBackgroundMultiplier > 1.0f) ? 1.0f : m_bloomBackgroundMultiplier;
+            m_bloomDiskMultiplier = (m_bloomDiskMultiplier > 1.0f) ? 1.0f : m_bloomDiskMultiplier;
         }
     }
     if (m_useBloom)

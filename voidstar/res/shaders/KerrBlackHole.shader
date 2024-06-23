@@ -1144,6 +1144,10 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         diskSample = vec3(1.0) * sampleNoiseTexture(planeIntersectionPoint.yzw);
     }
 
+    // This r-mapping is a hack to make the disc look nice when the disk's inner radius doesn't match the ISCO.
+    // Of course, this has no basis in reality.
+    float mappedr = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
+
     if (!u_drawBasicDisk)
     {
         // Velocity (in Kerr-Schild cartesian coordinates) of a massive particle in circular orbit in the equatorial plane
@@ -1168,10 +1172,6 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // See, e.g. Gravitation by Misner, Thorne, and Wheeler, page 64.
         float g = 1.0 / dot(diskIntersectionPoint[1], diskVel);
 
-        // This r-mapping is a hack to make the disc look nice when the disk's inner radius doesn't match the ISCO.
-        // Of course, this has no basis in reality.
-        float mappedr = map(r, u_InnerRadius, u_OuterRadius, u_risco, u_OuterRadius);
-
         // u_blueshiftPower = 1.0 is physically correct.
         float blueshift = pow(g, u_blueshiftPower);
         temperature = observedTemperature(mappedr, a, blueshift);
@@ -1186,16 +1186,18 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // 
         // This is F(r) from "Disk-accretion onto a black hole" by Page and Thorne (1973)
         // They called it the time-averaged flux of radiant energy / (time * area)
-        // 10000.0 is a magic number proportional to the accretion rate, \dot{M}, which is assumed to be constant
-        // in a steady disk.
-        brightnessFromRadius = u_dMdt * (f(mappedr, a) / r - ((r - u_InnerRadius) / (u_OuterRadius - u_InnerRadius)) * (f(u_OuterRadius, a) / u_OuterRadius));
+        // \dot{M} = dM/dt is assumed to be constant in a steady disk.
+        //brightnessFromRadius = u_dMdt * (f(r, a) / r - ((r - u_InnerRadius) / (u_OuterRadius - u_InnerRadius)) * (f(u_OuterRadius, a) / u_OuterRadius));
+        // brightnessFromRadius uses mappedr instead of r in order to have sensible looking results when the inner radius
+        // is not equal to r_ISCO.
+        brightnessFromRadius = u_dMdt * (f(mappedr, a) / mappedr - ((mappedr - u_risco) / (u_OuterRadius - u_risco)) * (f(u_OuterRadius, a) / u_OuterRadius));
         // 
         // Instead, we can also use a simple power law as in https://arxiv.org/pdf/1601.02389.
         // They call this the emissivity: \epsilon(r) \propto r^-q, where q is called the emissivity index.
         // A common value for q is 2.5.
         //brightnessFromRadius = clamp(u_dMdt * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
 
-        emission = diskSample * brightnessFromRadius * TemperatureToRGB(temperature) * brightnessFromVel * bloomDiskMultiplier;
+        emission = brightnessFromRadius * brightnessFromVel * bloomDiskMultiplier * diskSample * TemperatureToRGB(temperature);
         rayCol = T * emission;
     }
     else
@@ -1209,7 +1211,7 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
         // The brighter the disk is at the intersection point, the higher the absorption.
         //brightnessFromRadius = clamp(10000.0 * ((f(r, a) / r) - (f(u_OuterRadius, a) / u_OuterRadius)), 0.0, 1.0);
-        float absorptionDropOff = clamp(700.0 * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
+        float absorptionDropOff = clamp(700.0 * (pow(mappedr, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
         float absorptionNoise = sampleNoiseTexture(-planeIntersectionPoint.yzw);
         float absorption = u_diskAbsorption * absorptionNoise * absorptionDropOff;
         T *= exp(-absorption);
@@ -1422,8 +1424,7 @@ void main()
     fragColour = vec4(pixelCol, 1.0);
 
     float brightness = dot(fragColour.rgb, vec3(0.2126, 0.7152, 0.0722));
-    // Only apply bloom to rays that hit the disk, never the background.
-    if (brightness > u_bloomThreshold && hitDisk)
+    if (brightness > u_bloomThreshold)
         brightColour = vec4(fragColour.rgb, 1.0);
     else
         brightColour = vec4(0.0, 0.0, 0.0, 1.0);

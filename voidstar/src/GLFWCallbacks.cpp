@@ -11,6 +11,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <format>
 
 
 void WindowCloseCallback(GLFWwindow* window)
@@ -71,14 +72,15 @@ void MouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 
 void Screenshot()
 {
-	std::time_t time = std::time({});
-	std::tm calendar;
-	localtime_s(&calendar, &time); // This is Microsoft only -_-.  Needed for thread safety.
-	char timeString[std::size("yyyymmddhhmmss")];  // date string will be yyyymmddhhmmss, so 14 long +1 terminating char.
-	std::strftime(std::data(timeString), std::size(timeString), "%Y%m%d%H%M%S", &calendar);
-	timeString[14] = '\0';  // Guarantee timeString is null terminated for the string constructor.
-	std::string outFileName = timeString;
-	outFileName = "Screenshot_" + outFileName + ".png";
+	auto const timenow = std::chrono::system_clock::now();
+	std::string localtime = std::format("{0:%Y%m%d%H%M%S}", timenow);
+	// localtime probably has a '.' in it between seconds and milliseconds/microseconds.  Make a new string without the '.'.
+	std::string::size_type n = localtime.find('.');
+	if (n != std::string::npos)
+	{
+		localtime.erase(n, 1);
+	}
+	std::string outFileName = "Screenshot_" + localtime + ".png";
 #ifndef NDEBUG
 	std::cout << outFileName << '\n';
 #endif

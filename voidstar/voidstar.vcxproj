@@ -189,6 +189,7 @@
       <AdditionalIncludeDirectories>src;</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -208,6 +209,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>src;</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

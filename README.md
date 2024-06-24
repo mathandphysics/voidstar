@@ -3,7 +3,7 @@
 
 <p><code>void*</code> is a real-time black hole ray tracer written in C++ with OpenGL.  Fly
 around and observe a physically accurate spinning black hole with accretion disk against the optional backdrop of
-the Milky Way galaxy.  Additionally, <code>void*</code> properly renders the infalling light
+the Milky Way galaxy.  Additionally, <code>void*</code> renders the infalling light
 from the galaxy when the camera is located inside the event horizon.</p>
 
 ![Cinematic](voidstar/docs/images/cinematic.jpeg)

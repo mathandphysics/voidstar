@@ -17,6 +17,7 @@ namespace scene
 		virtual void OnRender() {}
 		virtual void OnImGuiRender() {}
 		virtual void OnResize() {}
+		virtual void OnClick(int x, int y) {}
 	};
 
 
@@ -30,6 +31,7 @@ namespace scene
 		void OnRender();
 		void OnImGuiRender();
 		void OnResize();
+		void OnClick(int x, int y);
 
 		template <typename T>
 		void RegisterScene(const std::string& name)

@@ -27,3 +27,8 @@ void scene::BlackHoleScene::OnResize()
 {
     m_blackHole.OnResize();
 }
+
+void scene::BlackHoleScene::OnClick(int x, int y)
+{
+    m_blackHole.OnClick(x, y);
+}

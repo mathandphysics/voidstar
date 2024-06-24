@@ -30,7 +30,6 @@ uniform vec4 u_ScreenSize;
 uniform float u_Time;
 uniform float u_InnerRadius;
 uniform float u_OuterRadius;
-uniform float u_BHRadius;
 uniform float u_risco;
 uniform float u_fOfRISCO;
 uniform float u_BHMass;

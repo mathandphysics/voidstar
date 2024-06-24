@@ -34,6 +34,7 @@ public:
 	~BlackHole();
 
 	void OnUpdate();
+	void OnClick(int x, int y);
 	void Draw();
 	void PostProcess();
 
@@ -69,10 +70,9 @@ public:
 private:
 	float m_mass = 1.0f;
 	float m_dMdt = 10000.0; // dM/dt = \dot{M}
-	float m_radius = 2.0f * m_mass;
 	float m_risco;
-	float m_diskInnerRadius = 2.25f * m_radius;
-	float m_diskOuterRadius = 9.0f * m_radius;
+	float m_diskInnerRadius = 4.5f * m_mass;
+	float m_diskOuterRadius = 18.0f * m_mass;
 	float m_a = 0.6f;
 	float m_Tmax = 2000.0f;
 	bool m_insideHorizon = false;

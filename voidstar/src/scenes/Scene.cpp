@@ -56,6 +56,14 @@ void scene::SceneManager::OnResize()
 	}
 }
 
+void scene::SceneManager::OnClick(int x, int y)
+{
+	if (m_CurrentScene)
+	{
+		m_CurrentScene->OnClick(x, y);
+	}
+}
+
 void scene::SceneManager::DeleteCurrentScene()
 {
 	if (m_CurrentScene)

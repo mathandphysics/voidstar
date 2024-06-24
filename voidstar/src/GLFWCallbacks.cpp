@@ -8,10 +8,12 @@
 #pragma warning(disable:4996)
 #include "stb_image_write.h"
 #pragma warning( pop )
+#include "imgui.h"
 
 #include <iostream>
 #include <chrono>
 #include <format>
+#include <cmath>
 
 
 void WindowCloseCallback(GLFWwindow* window)
@@ -49,7 +51,16 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		;
+#ifndef NDEBUG
+		double xpos;
+		double ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+		ImGuiIO& io = ImGui::GetIO();
+		if (!io.WantCaptureMouse)
+		{
+			Application::Get().OnClick((int)std::floor(xpos), (int)std::floor(ypos));
+		}
+#endif
 	}
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
@@ -73,14 +84,14 @@ void MouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 void Screenshot()
 {
 	auto const timenow = std::chrono::system_clock::now();
-	std::string localtime = std::format("{0:%Y%m%d%H%M%S}", timenow);
-	// localtime probably has a '.' in it between seconds and milliseconds/microseconds.  Make a new string without the '.'.
-	std::string::size_type n = localtime.find('.');
+	std::string datetimeStr = std::format("{0:%Y%m%d%H%M%S}", timenow);
+	// localtime probably has a '.' in it between seconds and milliseconds/microseconds.  If necessary, remove the '.'.
+	std::string::size_type n = datetimeStr.find('.');
 	if (n != std::string::npos)
 	{
-		localtime.erase(n, 1);
+		datetimeStr.erase(n, 1);
 	}
-	std::string outFileName = "Screenshot_" + localtime + ".png";
+	std::string outFileName = "Screenshot_" + datetimeStr + ".png";
 #ifndef NDEBUG
 	std::cout << outFileName << '\n';
 #endif

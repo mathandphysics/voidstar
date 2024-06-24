@@ -128,11 +128,49 @@ void Camera::SetCameraPos(glm::vec3 pos)
 	m_cameraPos = pos;
 }
 
+void Camera::SetLook(const glm::vec3 look)
+{
+	if (m_UseEulerAngles)
+	{
+		m_Look = look;
+		m_Up = m_originalUp;
+		m_Right = glm::normalize(glm::cross(m_Look, m_Up));
+		m_Look = glm::normalize(m_Look);
+		float pitch = glm::asin(m_Look.y);
+		float yaw = glm::atan(m_Look.x, m_Look.z);
+
+		// Restrict the pitch axis in order to prevent gimbal lock.
+		constexpr float max_angle = (89.0f / 90.0f) * (glm::pi<float>() / 2.0f);  // 89 degrees in radians
+		if (pitch > max_angle || pitch < -max_angle)
+		{
+			pitch = max_angle * glm::sign(pitch);
+		}
+
+		// We can't use a roll angle because we are forcing up to be fixed.
+		m_EulerAngles = glm::vec3(pitch, yaw, 0.0f);
+	}
+	else
+	{
+		// w component goes first in constructor: w,x,y,z
+		glm::quat newrotation{ glm::length(m_Look) * glm::length(look) + glm::dot(m_Look, look), glm::cross(m_Look, look) };
+		m_cameraRot = glm::normalize(newrotation) * m_cameraRot;
+		m_Look = m_cameraRot * m_originalLook;
+		m_Up = m_cameraRot * m_originalUp;
+		m_Right = m_cameraRot * m_originalRight;
+	}
+}
+
 void Camera::SetProj()
 {
 	int width, height;
 	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
 	m_Proj = glm::perspective(glm::radians(m_FOV), (float)width / (float)height, 0.1f, 1000.0f);
+}
+
+void Camera::SetFOV(float fov)
+{
+	m_FOV = fov;
+	SetProj();
 }
 
 void Camera::TogglePause()

@@ -17,6 +17,7 @@ namespace scene
 		void OnRender() override;
 		void OnImGuiRender() override;
 		void OnResize() override;
+		void OnClick(int x, int y) override;
 
 	private:
 		BlackHole m_blackHole;

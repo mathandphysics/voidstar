@@ -23,7 +23,9 @@ class Camera
 		void Reset();
 
 		void SetCameraPos(glm::vec3 pos);
+		void SetLook(glm::vec3 pos);
 		void SetProj();
+		void SetFOV(float fov);
 		void TogglePause();
 		void ToggleEulerAngles();
 

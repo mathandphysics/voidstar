@@ -21,6 +21,7 @@ public:
 	void ToggleVsync() const;
 	void ToggleFullscreen();
 	void OnResize(int width, int height);
+	void OnClick(int x, int y);
 
 	static Application& Get()
 	{
@@ -35,6 +36,7 @@ public:
 	Timer& GetFrameTimer() { return m_FrameTimer; }
 	Timer& GetCPUTimer() { return m_CPUTimer; }
 	Timer& GetGPUTimer() { return m_GPUTimer; }
+	bool GetPaused() const { return m_Paused; }
 
 	void ResetCameraMousePos();
 	void ImGuiPrintRenderStats();

@@ -14,12 +14,19 @@ BlackHole::BlackHole()
     CreateFBOs();
     CompilePostShaders();
 
-    // y=1 puts the camera slightly above the xz-plane of the accretion disk.
-    // Ideally we'd be able to set the z-distance from the black hole programmatically based on the camera's FOV,
+    // y>0 puts the camera above the xz-plane of the accretion disk.
+    // Ideally we'd be able to set the z position from the black hole programmatically based on the camera's FOV,
     // but because of the bending of light, the calculation too complicated, so we set it manually.
-    // FOV = 60  =>  z-distance = -25.0.
-    // FOV = 40  =>  z-distance = -35.5.
-    Application::Get().GetCamera().SetCameraPos(glm::vec3(0.0f, 1.0f, -35.5f));
+    // FOV = 60  =>  z position = -25.0.
+    // FOV = 40  =>  z position = -35.5.
+    // FOV = 30  =>  z position = -45.0
+    Camera& camera = Application::Get().GetCamera();
+    camera.SetFOV(30.0f);
+    glm::vec3 pos = glm::vec3(0.0f, 2.0f, -45.0f);
+    glm::vec3 blackholePos = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 look = glm::normalize(blackholePos - pos);
+    camera.SetLook(look);
+    camera.SetCameraPos(pos);
 
     SetGraphicsPreset(m_presets[m_presetSelector]);
 }
@@ -37,6 +44,16 @@ void BlackHole::OnUpdate()
     // Set the new draw distance based on camera position.  Also determine whether the camera is inside the event horizon.
     m_drawDistance = CalculateDrawDistance();
     SetShaderDefines();
+}
+
+void BlackHole::OnClick(int x, int y)
+{
+    if (Application::Get().GetPaused())
+    {
+#ifndef NDEBUG
+        std::cout << "Left mouse click!  Cursor position x = " << x << ", y = " << y << std::endl;
+#endif
+    }
 }
 
 void BlackHole::Draw()
@@ -174,7 +191,6 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform4f("u_ScreenSize", (float)vp[0], (float)vp[1], (float)vp[2], (float)vp[3]);
     shader->SetUniform1f("u_InnerRadius", m_diskInnerRadius);
     shader->SetUniform1f("u_OuterRadius", m_diskOuterRadius);
-    shader->SetUniform1f("u_BHRadius", m_radius);
     shader->SetUniform1f("u_risco", m_risco);
     shader->SetUniform1f("u_BHMass", m_mass);
     shader->SetUniform1f("u_dMdt", m_dMdt);
@@ -528,8 +544,7 @@ void BlackHole::ImGuiBHProperties()
         "simulation quality below.");
     if (ImGui::SliderFloat("##BlackHoleMass", &m_mass, 1.0, 3.0, "Black Hole Mass = %.1f"))
     {
-        m_radius = 2.0f * m_mass;
-        m_diskInnerRadius = 3.0f * m_radius;
+        m_diskInnerRadius = 6.0f * m_mass;
         if (m_mass <= m_a)
         {
             m_a = m_mass - 0.05f, 0.0f;
@@ -540,12 +555,12 @@ void BlackHole::ImGuiBHProperties()
         }
         CalculateISCO();
     }
-    ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 1.5f * m_radius, 5.0f * m_radius, "Inner Disk Radius = %.1f");
+    ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 3.0f * m_mass, 10.0f * m_mass, "Inner Disk Radius = %.1f");
     if (ImGui::Button("Set Inner Radius to ISCO"))
     {
         m_diskInnerRadius = m_risco;
     }
-    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 20.0f * m_radius,
+    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 40.0f * m_mass,
         "Outer Disk Radius = %.1f");
     if (m_shaderSelector == 0)
     {
@@ -657,7 +672,7 @@ void BlackHole::ImGuiCinematic()
     float maxBackgroundMultiplier = m_useBloom ? 10.0f : 1.0f;
     float maxEmissionMultiplier = m_useBloom ? 10.0f : 1.0f;
     ImGui::SliderFloat("##BackgroundMultiplier", &m_bloomBackgroundMultiplier, 0.0f, maxBackgroundMultiplier, "Background = %.2f");
-    ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, maxEmissionMultiplier, "Disk Emission = %.1f");
+    ImGui::SliderFloat("##DiskMultiplier", &m_bloomDiskMultiplier, 0.0f, maxEmissionMultiplier, "Disk Emission = %.2f");
     ImGui::SliderFloat("##DiskAbsorption", &m_diskAbsorption, 0.0f, 10.0f, "Disk Absorption = %.1f");
     ImGui::SliderFloat("##dMdt", &m_dMdt, 0.0f, 30000.0f, "dM/dt = %.0f");
     ImGui::SliderFloat("##blueshiftPower", &m_blueshiftPower, 0.0f, 10.0f, "Blueshift Power = %.2f");

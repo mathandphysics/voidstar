@@ -29,7 +29,7 @@ $$
 Multiple integration methods from the Runge-Kutta family are implemented and can support
 any metric tensor.  The Kerr and Minkowski metrics are currently included.</p>
 
-<p>A "cinematic mode" is included with lighting options to create neat images.
+<p>A "cinematic mode" is included with post-processing options to create neat images.
 Additionally, <code>void*</code> can draw debug colouring on both the accretion disk and
 sphere in order to better make sense of what you're looking at.  By default, the top of
 the accretion disk and bottom of the accretion disk are coloured differently.</p>

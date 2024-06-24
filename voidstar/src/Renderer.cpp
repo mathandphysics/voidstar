@@ -149,14 +149,14 @@ void Renderer::Shutdown()
 std::string Renderer::GetShaderPath(const std::string& filePath, const std::vector<std::string>& vertexDefines, const std::vector<std::string>& fragmentDefines)
 {
     std::string filePathwithDefines = filePath;
-    for (auto str : vertexDefines)
+    for (auto &str : vertexDefines)
     {
         if (!str.empty())
         {
             filePathwithDefines.append(str);
         }
     }
-    for (auto str : fragmentDefines)
+    for (auto &str : fragmentDefines)
     {
         if (!str.empty())
         {

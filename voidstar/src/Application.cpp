@@ -97,6 +97,11 @@ void Application::OnResize(int width, int height)
 	}
 }
 
+void Application::OnClick(int x, int y)
+{
+	m_SceneManager.OnClick(x, y);
+}
+
 void Application::ResetCameraMousePos()
 {
 	double currentMouseX, currentMouseY;

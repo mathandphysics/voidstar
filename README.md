@@ -3,7 +3,7 @@
 
 <p><code>void*</code> is a real-time black hole ray tracer written in C++ with OpenGL.  Fly
 around and observe a physically accurate spinning black hole with accretion disk against the optional backdrop of
-the Milky Way galaxy.  Additionally, <code>void*</code> renders the infalling light
+the Milky Way galaxy.  Additionally, <code>void*</code> correctly renders the infalling light
 from the galaxy when the camera is located inside the event horizon.</p>
 
 ![Cinematic](voidstar/docs/images/cinematic.jpeg)
@@ -27,7 +27,14 @@ $$
 
 <p>where $\lambda$ parametrizes the geodesic.  These equations are solved numerically.
 Multiple integration methods from the Runge-Kutta family are implemented and can support
-any metric tensor.  The Kerr and Minkowski metrics are currently included.</p>
+any metric tensor.  The Kerr and Minkowski metrics are currently included.  The Kerr
+metric is used in Kerr-Schild Cartesian coordinates, which have the benefit of not having
+a coordinate singularity at the event horizon, unlike Boyer-Lindquist coordinates.</p>
+
+<p>The accretion disk resides in the equatorial plane of the black hole and 
+is assumed to have negligible self-gravity.  We also assume the disk is thin, i.e. at 
+radius $r$, the thickness of the disk $\ll r$.  The actual detail of the disk is produced by 
+Perlin noise.</p>
 
 <p>A "cinematic mode" is included with post-processing options to create neat images.
 Additionally, <code>void*</code> can draw debug colouring on both the accretion disk and
@@ -95,7 +102,7 @@ Then just open the solution file in Visual Studio and compile.
 - "Gravitation" by Misner, Thorne, and Wheeler
 - ["The Kerr spacetime: A brief introduction"](https://arxiv.org/abs/0706.0622) by Matt Visser (2008)
 - The [blog](https://michaelmoroz.github.io/TracingGeodesics/) by Mykhailo Moroz
-- ["Disk-accretion onto a black hole"](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P/abstract) by Page and Thorne (1974)
+- ["Disk-Accretion onto a Black Hole. Time-Averaged Structure of Accretion Disk"](https://ui.adsabs.harvard.edu/abs/1974ApJ...191..499P/abstract) by Page and Thorne (1974)
 - ["Detecting Accretion Disks in Active Galactic Nuclei"](https://ui.adsabs.harvard.edu/abs/1997PASJ...49..159F/abstract) by Fanton, et al (1997)
 - ["Line shifts in accretion disks - the case of Fe Ka"](https://arxiv.org/abs/1601.02389) by Jovanovic, et al (2016)
 - ["Gravitational Lensing by Spinning Black Holes in Astrophysics, and in the Movie Interstellar"](https://arxiv.org/abs/1502.03808) by James et al (2015)

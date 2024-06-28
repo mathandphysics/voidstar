@@ -568,13 +568,6 @@ void BlackHole::ImGuiBHProperties()
         }
         CalculateISCO();
     }
-    ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 3.0f * m_mass, 10.0f * m_mass, "Inner Disk Radius = %.1f");
-    if (ImGui::Button("Set Inner Radius to ISCO"))
-    {
-        m_diskInnerRadius = m_risco;
-    }
-    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 40.0f * m_mass,
-        "Outer Disk Radius = %.1f");
     if (m_shaderSelector == 0)
     {
         // Only show a for a Kerr black hole.
@@ -583,6 +576,16 @@ void BlackHole::ImGuiBHProperties()
             CalculateISCO();
         }
     }
+    ImGui::Text("Disk Properties:");
+    ImGui::SameLine();
+    HelpMarker("Control the radii, temperature, and rotation speed of the black hole's accretion disk.");
+    ImGui::SliderFloat("##InnerDiskRadius", &m_diskInnerRadius, 3.0f * m_mass, 10.0f * m_mass, "Inner Disk Radius = %.1f");
+    if (ImGui::Button("Set Inner Radius to ISCO"))
+    {
+        m_diskInnerRadius = m_risco;
+    }
+    ImGui::SliderFloat("##OuterDiskRadius", &m_diskOuterRadius, m_diskInnerRadius, 40.0f * m_mass,
+        "Outer Disk Radius = %.1f");
     ImGui::SliderFloat("##Max Temperature", &m_Tmax, 1000.0f, 20000.0f, "Max Disk Temperature = %.0f");
     if (m_use3DDisk)
     {
@@ -613,16 +616,16 @@ void BlackHole::ImGuiChooseODESolver()
     }
     ImGui::SameLine();
     HelpMarker("Bogacki-Shampine Method.  Use the tolerance slider to choose a trade-off between speed and accuracy.  Overall "
-        "the best ODE solving method for black holes.");
+        "the best ODE solving method for void*.");
     if (ImGui::RadioButton("Adaptive RK4/5", &m_ODESolverSelector, 3))
     {
         SetShader(m_selectedShaderString);
     }
     ImGui::SameLine();
     HelpMarker("Dormand-Prince Method.  Use the tolerance slider to choose a trade-off between speed and accuracy."
-                "  Note that because of its high accuracy, this solver takes very large steps.  This can cause issues with "
-                "detecting that the rays hit the accretion disk.  As a result, the inner edge of the disk may look "
-                "jagged.");
+        "  Note that because of its high accuracy, this solver takes very large steps.  This can cause issues with "
+        "detecting that the rays hit the accretion disk.  As a result, the disk may have strange holes in it.  "
+        "If this occurs, decrease the Tolerance slider below.");
 }
 
 void BlackHole::ImGuiSimQuality()

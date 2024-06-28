@@ -19,7 +19,7 @@ public:
 	void OnWindowClose();
 	void OnPause();
 	void ToggleVsync() const;
-	void ToggleFullscreen();
+	void ToggleFullscreen(bool external);
 	void OnResize(int width, int height);
 	void OnClick(int x, int y);
 

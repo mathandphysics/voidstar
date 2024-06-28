@@ -40,6 +40,10 @@ void KeyPressCallback(GLFWwindow* window, int key, int scancode, int action, int
 	{
 		Application::Get().OnPause();
 	}
+	else if (key == GLFW_KEY_F11 && action == GLFW_PRESS)
+	{
+		Application::Get().ToggleFullscreen(true);
+	}
 	else
 	{
 		Application::Get().GetCamera().GetInputHandler().OnKey(key, action);

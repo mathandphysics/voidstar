@@ -53,7 +53,7 @@ class Camera
 		bool m_Paused = true;
 
 		float m_UserDefinedMovementSpeed = 1.0f;
-		float m_UserDefinedMouseSpeed = 1.0f;
+		float m_UserDefinedMouseSpeed = 0.75f;
 		const float m_defaultMovementSpeed = 4.0f;
 		const float m_defaultMouseSpeed = 0.2f;
 		float m_MovementSpeed = m_UserDefinedMovementSpeed * m_defaultMovementSpeed;

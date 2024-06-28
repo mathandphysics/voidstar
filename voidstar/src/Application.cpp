@@ -77,8 +77,12 @@ void Application::ToggleVsync() const
 	glfwSwapInterval(m_Vsync);
 }
 
-void Application::ToggleFullscreen()
+void Application::ToggleFullscreen(bool external)
 {
+	if (external)
+	{
+		m_fullScreen = !m_fullScreen;
+	}
 	m_Window.SetFullscreen(m_fullScreen);
 }
 
@@ -125,7 +129,7 @@ void Application::ImGuiPrintRenderStats()
 	}
 	if (ImGui::Checkbox("Full Screen", &m_fullScreen))
 	{
-		ToggleFullscreen();
+		ToggleFullscreen(false);
 	}
 	int width, height;
 	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);

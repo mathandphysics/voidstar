@@ -442,7 +442,7 @@ float L(vec4 x, vec4 dxdl)
 
 vec4 dHdx(vec4 x, vec4 p)
 {
-    // Naive dH/dx calculation.
+    // Naive dH/dx approximation.
     vec4 Hdx;
     float dx = 0.005; // Governs accuracy of dHdx
     Hdx[0] = H(x + vec4(dx, 0.0, 0.0, 0.0), p);
@@ -453,7 +453,7 @@ vec4 dHdx(vec4 x, vec4 p)
 }
 
 #ifdef KERR
-vec4 dHdxExact(vec4 x, vec4 p)
+vec4 KerrdHdxExact(vec4 x, vec4 p)
 {
     // Calculates dH/dx exactly for the Kerr metric in Kerr-Schild Cartesian coordinates.
     // Not only is this obviously more accurate than the naive approximation of dHdx, but it happens to be
@@ -464,7 +464,7 @@ vec4 dHdxExact(vec4 x, vec4 p)
     // dg^ab / dx^\alpha = -df/dx^\alpha * outerProduct(l,l) - f * outerProduct(dl/dx^\alpha, l) - f * outerProduct(l, dl/dx^\alpha)
     // We note that since p^T outerProduct(dl/dx^\alpha, l) p = p^T  outerProduct(l, dl/dx^\alpha) p,
     // we only need to calculate -df/dx^\alpha * outerProduct(l,l) - 2 * f * outerProduct(dl/dx^\alpha, l).
-    // So we only need to calculate df/dx^\alpha and dl/dx^\alpha.  To calculate those, we'll also need dr/dx^\alpha.
+    // So we need to calculate df/dx^\alpha and dl/dx^\alpha.  To calculate those, we'll also need dr/dx^\alpha.
     vec3 pos = x.yzw;
     float r = implicitr(x);
     float r2 = r * r;
@@ -514,15 +514,13 @@ vec4 dHdxExact(vec4 x, vec4 p)
     // Rather than calculating the outerProducts and then multiplying by p on both sides, we can skip this and just
     // calculate the dot products directly.
     float ldotp = dot(l, p);
-    float dldtdotp = dot(dldt, p);
-    float dldxdotp = dot(dldx, p);
-    float dldydotp = dot(dldy, p);
-    float dldzdotp = dot(dldz, p);
-    vec4 dldxhatdotp = vec4(dldtdotp, dldxdotp, dldydotp, dldzdotp);
+    vec4 dldxhatdotp = vec4(dot(dldt, p), dot(dldx, p), dot(dldy, p), dot(dldz, p));
     vec4 firstterm = vec4(ldotp * ldotp);
     vec4 secondterm = vec4(2.0 * f * ldotp);
 
-    // (1/2) * vec4(-df/dx^\alpha * p^T * outerProduct(l,l) * p - 2 * f * p^T * outerProduct(l, dl/dx^\alpha) * p)
+    // Equivalent to the 4-vector whose alpha-th component is:
+    // (1/2) * (-df/dx^\alpha * p^T * outerProduct(l,l) * p - 2 * f * p^T * outerProduct(l, dl/dx^\alpha) * p)
+    // which is precisely the vector dH/dx.
     return -0.5 * (dfdxhat * firstterm + secondterm * dldxhatdotp);
 }
 #endif
@@ -595,15 +593,14 @@ mat2x4 fasterxpupdate(in mat2x4 xp, float dl)
     vec4 p = xp[1];
     // Calculate the Hamiltonian at x.
     mat4 ginv = invmetric(x);
-    float Hatx = 0.5 * dot(ginv * p, p);
-
-    float dx = 0.005; // Governs accuracy of dHdx
 
     mat2x4 dxp;
 #ifdef KERR
-    dxp[1] = -dHdxExact(x, p) * dl;
+    dxp[1] = -KerrdHdxExact(x, p) * dl;
 #else
     // General approximation of dHdx.
+    float Hatx = 0.5 * dot(ginv * p, p);
+    float dx = 0.005; // Governs accuracy of dHdx
     vec4 Hdx = vec4( H(x + vec4(dx, 0.0, 0.0, 0.0), p), H(x + vec4(0.0, dx, 0.0, 0.0), p),
         H(x + vec4(0.0, 0.0, dx, 0.0), p), H(x + vec4(0.0, 0.0, 0.0, dx), p));
     vec4 dHdx = (Hdx - Hatx) / dx;
@@ -636,24 +633,19 @@ mat2x4 fasterxpupdateImplicitEuler(in mat2x4 xp, float dl)
     vec4 p = xp[1];
     // Calculate the Hamiltonian at x.
     mat4 ginv = invmetric(x);
-    float Hatx = 0.5 * dot(ginv * p, p);
-
-    float dx = 0.005; // Governs accuracy of dHdx
-
-#ifdef KERR
-    // Note that for the Kerr metric in Kerr-Schild cartesian coordinates specifically,
-    // H(x) = H(x + (dx, 0.0, 0.0, 0.0)), so we can additionally save a calculation of H.
-    vec4 Hdx = vec4(Hatx, H(x + vec4(0.0, dx, 0.0, 0.0), p),
-        H(x + vec4(0.0, 0.0, dx, 0.0), p), H(x + vec4(0.0, 0.0, 0.0, dx), p));
-#else
-    // General formula.
-    vec4 Hdx = vec4(H(x + vec4(dx, 0.0, 0.0, 0.0), p), H(x + vec4(0.0, dx, 0.0, 0.0), p),
-        H(x + vec4(0.0, 0.0, dx, 0.0), p), H(x + vec4(0.0, 0.0, 0.0, dx), p));
-#endif
-    vec4 dHdx = (Hdx - Hatx) / dx;
 
     mat2x4 dxp;
+#ifdef KERR
+    dxp[1] = -KerrdHdxExact(x, p) * dl;
+#else
+    // General formula.
+    float Hatx = 0.5 * dot(ginv * p, p);
+    float dx = 0.005; // Governs accuracy of dHdx
+    vec4 Hdx = vec4(H(x + vec4(dx, 0.0, 0.0, 0.0), p), H(x + vec4(0.0, dx, 0.0, 0.0), p),
+        H(x + vec4(0.0, 0.0, dx, 0.0), p), H(x + vec4(0.0, 0.0, 0.0, dx), p));
+    vec4 dHdx = (Hdx - Hatx) / dx;
     dxp[1] = -dHdx * dl;
+#endif
     // Correction for Euler-Cromer method as opposed to vanilla Euler method
     p += dxp[1];
     dxp[0] = ginv * p * dl;
@@ -1327,8 +1319,8 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     // p_i = g_ij * dx^j/dlambda
     // Set x_t = 0.  Set dx^0/dlambda = 1 for ingoing coordinates and -1 for outgoing coordinates.
     mat2x4 xp;
-    xp[0] = vec4(0.0, cameraPos);
     mat2x4 previousxp;
+    xp[0] = vec4(0.0, cameraPos);
     dist = metricDistance(xp[0]);
 #ifdef INSIDE_HORIZON
     // Inside the event horizon, we need to change the metric to outgoing coordinates.  We adjust p accordingly.
@@ -1336,8 +1328,6 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
 #else
     xp[1] = metric(xp[0]) * vec4(1.0, rayDir);
 #endif
-
-    vec3 diskSample = vec3(0.0);
 
     float stepSize;
     float oldStepSize;
@@ -1385,8 +1375,8 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
         // Check if the ray hit the disk
         // Check to see whether the Cartesian y-coordinate changed signs, i.e. if the ray crossed the disk's plane.
         // CAUTION: when the stepsize is too big (e.g. for RK45), then it's possible for a ray to cross the xz-plane
-        // and then cross back over to the previous side all within a single step.  This can lead to a jagged edge
-        // at the inner edge of the accretion disk.  Decreasing tolerance (i.e. forcing a smaller stepsize) fixes this.
+        // and then cross back over to the previous side all within a single step.  This can lead to odd holes in
+        // the accretion disk.  Decreasing tolerance (i.e. forcing a smaller stepsize) fixes this.
         if (xp[0][2] * previousxp[0][2] < 0.0)
         {
             if (dist > horizon)

@@ -452,6 +452,7 @@ vec4 dHdx(vec4 x, vec4 p)
     return (Hdx - H(x, p)) / dx;
 }
 
+#ifdef KERR
 vec4 dHdxExact(vec4 x, vec4 p)
 {
     // Calculates dH/dx exactly for the Kerr metric in Kerr-Schild Cartesian coordinates.
@@ -521,9 +522,10 @@ vec4 dHdxExact(vec4 x, vec4 p)
     vec4 firstterm = vec4(ldotp * ldotp);
     vec4 secondterm = vec4(2.0 * f * ldotp);
 
-    // (1/2) * (-dfdx * p^T * outerProduct(l,l) * p - 2 * f * p^T * outerProduct(l, dldx) * p)
+    // (1/2) * vec4(-df/dx^\alpha * p^T * outerProduct(l,l) * p - 2 * f * p^T * outerProduct(l, dl/dx^\alpha) * p)
     return -0.5 * (dfdxhat * firstterm + secondterm * dldxhatdotp);
 }
+#endif
 
 #ifdef CLASSICAL
 mat2x4 xpupdate(in mat2x4 xp, float dl)
@@ -597,21 +599,16 @@ mat2x4 fasterxpupdate(in mat2x4 xp, float dl)
 
     float dx = 0.005; // Governs accuracy of dHdx
 
+    mat2x4 dxp;
 #ifdef KERR
-    // Note that for the Kerr metric in Kerr-Schild cartesian coordinates specifically,
-    // H(x) = H(x + (dx, 0.0, 0.0, 0.0)), so we can additionally save a calculation of H.
-    vec4 Hdx = vec4(Hatx, H(x + vec4(0.0, dx, 0.0, 0.0), p),
-                    H(x + vec4(0.0, 0.0, dx, 0.0), p), H(x + vec4(0.0, 0.0, 0.0, dx), p));
+    dxp[1] = -dHdxExact(x, p) * dl;
 #else
-    // General formula.
+    // General approximation of dHdx.
     vec4 Hdx = vec4( H(x + vec4(dx, 0.0, 0.0, 0.0), p), H(x + vec4(0.0, dx, 0.0, 0.0), p),
         H(x + vec4(0.0, 0.0, dx, 0.0), p), H(x + vec4(0.0, 0.0, 0.0, dx), p));
-#endif
     vec4 dHdx = (Hdx - Hatx) / dx;
-
-    mat2x4 dxp;
-    //dxp[1] = -dHdx * dl;
-    dxp[1] = -dHdxExact(x, p) * dl;
+    dxp[1] = -dHdx * dl;
+#endif
     dxp[0] = ginv * p * dl;
 
     return dxp;

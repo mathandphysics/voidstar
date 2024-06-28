@@ -18,6 +18,7 @@ in vec2 TexCoords;
 
 uniform sampler2D diskTexture;
 uniform sampler2D sphereTexture;
+uniform sampler2D spectrumTexture;
 uniform samplerCube skybox;
 
 uniform mat4 u_View;
@@ -451,6 +452,79 @@ vec4 dHdx(vec4 x, vec4 p)
     return (Hdx - H(x, p)) / dx;
 }
 
+vec4 dHdxExact(vec4 x, vec4 p)
+{
+    // Calculates dH/dx exactly for the Kerr metric in Kerr-Schild Cartesian coordinates.
+    // Not only is this obviously more accurate than the naive approximation of dHdx, but it happens to be
+    // much faster as well.
+    // 
+    // dH/dx^\alpha = (1/2) * dg^{\mu \nu}/dx^\alpha * p_\mu * p_\nu
+    // Since g^ab = \eta^ab - f * outerProduct(l,l),
+    // dg^ab / dx^\alpha = -df/dx^\alpha * outerProduct(l,l) - f * outerProduct(dl/dx^\alpha, l) - f * outerProduct(l, dl/dx^\alpha)
+    // We note that since p^T outerProduct(dl/dx^\alpha, l) p = p^T  outerProduct(l, dl/dx^\alpha) p,
+    // we only need to calculate -df/dx^\alpha * outerProduct(l,l) - 2 * f * outerProduct(dl/dx^\alpha, l).
+    // So we only need to calculate df/dx^\alpha and dl/dx^\alpha.  To calculate those, we'll also need dr/dx^\alpha.
+    vec3 pos = x.yzw;
+    float r = implicitr(x);
+    float r2 = r * r;
+    float r3 = r2 * r;
+    float r4 = r3 * r;
+    float a2 = u_a * u_a;
+    float r2plusa2 = r2 + a2;
+    float a4 = a2 * a2;
+    float y2 = pos.y * pos.y;
+    float f = 2.0 * u_BHMass * r3 / (r4 + a2 * y2);
+    float xnumer = (r * pos.x - u_a * pos.z);
+    float znumer = (r * pos.z + u_a * pos.x);
+#ifdef INSIDE_HORIZON
+    // Outgoing Kerr-Schild coordinates.
+    vec4 l = vec4(1.0, xnumer / r2plusa2, pos.y / r, znumer / r2plusa2);
+#else
+    // Ingoing Kerr-Schild coordinates.
+    vec4 l = vec4(-1.0, xnumer / r2plusa2, pos.y / r, znumer / r2plusa2);
+#endif
+
+    // Calculate dr/dx, dr/dy, dr/dz.
+    float dr_common_factor = r3 * r2plusa2 * r2plusa2 / (y2 * r2plusa2 * r2plusa2 + r4 * (pos.x * pos.x + pos.z * pos.z));
+    float drdx = (pos.x / r2plusa2) * dr_common_factor;
+    float drdy = (pos.y / r2) * dr_common_factor;
+    float drdz = (pos.z / r2plusa2) * dr_common_factor;
+
+    // Calculate df/dt, df/dx, df/dy, df/dz using dr/dx, dr/dy, dr/dz.
+    float df_common_numerator = (6.0 * u_BHMass * r2 * (r4 + a2 * y2) - 8.0 * u_BHMass * r4 * r2);
+    float df_common_denominator = (r4 + a2 * y2) * (r4 + a2 * y2);
+    float dfdt = 0.0;
+    float dfdx = df_common_numerator * drdx / df_common_denominator;
+    float dfdy = (df_common_numerator * drdy - 4.0 * u_BHMass * r3 * a2 * pos.y) / df_common_denominator;
+    float dfdz = df_common_numerator * drdz / df_common_denominator;
+    vec4 dfdxhat = vec4(dfdt, dfdx, dfdy, dfdz);
+
+    // Calculate dl/dt, dl/dx, dl/dy, dl/dz.
+    float denom = r2plusa2 * r2plusa2;
+    vec4 dldt = vec4(0.0, 0.0, 0.0, 0.0);
+    vec4 dldx = vec4(0.0, (r2plusa2 * (drdx * pos.x + r) - xnumer * 2.0 * r * drdx) / denom,
+        -pos.y * drdx / r2, (r2plusa2 * (drdx * pos.z + u_a) - znumer * 2.0 * r * drdx) / denom);
+    vec4 dldy = vec4(0.0, (r2plusa2 * drdy * pos.x - xnumer * 2.0 * r * drdy) / denom, (r - pos.y * drdy) / r2,
+        (r2plusa2 * drdy * pos.z - znumer * 2.0 * r * drdy) / denom);
+    vec4 dldz = vec4(0.0, (r2plusa2 * (drdz * pos.x - u_a) - xnumer * 2.0 * r * drdz) / denom,
+        -pos.y * drdz / r2, (r2plusa2 * (drdz * pos.z + r) - znumer * 2.0 * r * drdz) / denom);
+
+    // Calculate dot products
+    // Rather than calculating the outerProducts and then multiplying by p on both sides, we can skip this and just
+    // calculate the dot products directly.
+    float ldotp = dot(l, p);
+    float dldtdotp = dot(dldt, p);
+    float dldxdotp = dot(dldx, p);
+    float dldydotp = dot(dldy, p);
+    float dldzdotp = dot(dldz, p);
+    vec4 dldxhatdotp = vec4(dldtdotp, dldxdotp, dldydotp, dldzdotp);
+    vec4 firstterm = vec4(ldotp * ldotp);
+    vec4 secondterm = vec4(2.0 * f * ldotp);
+
+    // (1/2) * (-dfdx * p^T * outerProduct(l,l) * p - 2 * f * p^T * outerProduct(l, dldx) * p)
+    return -0.5 * (dfdxhat * firstterm + secondterm * dldxhatdotp);
+}
+
 #ifdef CLASSICAL
 mat2x4 xpupdate(in mat2x4 xp, float dl)
 {
@@ -536,7 +610,8 @@ mat2x4 fasterxpupdate(in mat2x4 xp, float dl)
     vec4 dHdx = (Hdx - Hatx) / dx;
 
     mat2x4 dxp;
-    dxp[1] = -dHdx * dl;
+    //dxp[1] = -dHdx * dl;
+    dxp[1] = -dHdxExact(x, p) * dl;
     dxp[0] = ginv * p * dl;
 
     return dxp;
@@ -1077,6 +1152,14 @@ vec3 TemperatureToRGB(in float temperature) {
     return colour;
 }
 
+vec3 TemperatureToRGBTexture(in float temperature)
+{
+    // Spectrum texture goes from 500K to 40000K.  Need to convert temperature to coordinates.
+    temperature = clamp(temperature, 500.0, 40000.0);
+    temperature = map(temperature, 500.0, 40000.0, 0.0, 1.0);
+    return texture(spectrumTexture, vec2(temperature, 0.0)).xyz;
+}
+
 float f(const in float r)
 {
     // Uses the black hole's mass and spin, along with a point on the equatorial accretion disk that is r away from the
@@ -1168,6 +1251,9 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         // inverse metric to get dx^i/dt = g^ij * p_j.  But then in the metric dot product, we'd multiply by g_ij again:
         // metricdot(dx^i/dt, dy^i/dt) = regulardot(g_ij dx^j/dt, dy^i/dt) = regulardot(g_ik * g^kj * p_j, dy^i/dt) = regulardot(p_i, dy^i/dt)
         // See, e.g. Gravitation by Misner, Thorne, and Wheeler, page 64.
+        // NOTE: because the camera is stationary, including in places where the gravitational field is very strong,
+        // the camera would have to be moving faster than the speed of light to not fall into the black hole.
+        // This would cause g to diverage at points if we included the numerator of g.
         float g = 1.0 / dot(diskIntersectionPoint[1], diskVel);
 
         // u_blueshiftPower = 1.0 is physically correct.
@@ -1196,6 +1282,7 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
         //brightnessFromRadius = clamp(u_dMdt * (pow(r, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
 
         emission = brightnessFromRadius * brightnessFromVel * u_bloomDiskMultiplier * diskSample * TemperatureToRGB(temperature);
+        //emission = brightnessFromRadius * brightnessFromVel * u_bloomDiskMultiplier * diskSample * TemperatureToRGBTexture(temperature);
         rayCol = T * emission;
     }
     else

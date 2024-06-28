@@ -90,7 +90,7 @@ Then just open the solution file in Visual Studio and compile.
 
 ### References
 
-- The skybox image of the Milky Way galaxy is thanks to the [NASA](https://svs.gsfc.nasa.gov/4851)
+- The skybox image of the Milky Way galaxy is thanks to [NASA](https://svs.gsfc.nasa.gov/4851)
 - "Einstein Gravity in a Nutshell" by Zee
 - "Gravitation" by Misner, Thorne, and Wheeler
 - ["The Kerr spacetime: A brief introduction"](https://arxiv.org/abs/0706.0622) by Matt Visser (2008)

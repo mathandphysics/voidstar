@@ -77,10 +77,11 @@ private:
 	float m_Tmax = 2000.0f;
 	bool m_insideHorizon = false;
 
+	float m_diskThickness = 0.3f;
 	float m_diskRotationSpeed = 0.1f;
 	float m_diskRotationAngle = 0.0f;
 
-	bool m_drawLensing = true;
+	bool m_use3DDisk = false;
 	bool m_transparentDisk = true;
 	bool m_drawBasicDisk = false;
 	bool m_useDebugDiskTexture = false;
@@ -104,7 +105,7 @@ private:
 	int m_presetSelector = 0;
 	std::vector<graphicsPreset> m_presets = { { "Warm", 4.5f, 0.6f, 2000.0f, 7.0f, 0.0f, 1.0f, 15000.0f, 1.0f, 6.0f, false, 1.6f, 0.5f, 0.5f },
 		{ "Interstellar", 4.5f, 0.6f, 4500.0f, 7.0f, 0.0f, 1.0f, 15000.0f, 0.0f, 1.0f, true, 0.1f, 1.0f, 0.5f },
-		{ "Realistic", 3.85f, 0.6f, 10000.0f, 3.0f, 0.0f, 1.0f, 5000.0f, 1.0f, 4.0f, true, 4.0f, 1.0f, 0.5f },
+		{ "Realistic", 3.85f, 0.6f, 10000.0f, 3.0f, 0.0f, 1.0f, 3000.0f, 1.0f, 4.0f, true, 4.0f, 1.0f, 0.5f },
 	};
 
 	bool m_ImGuiFirstTime = true;
@@ -137,23 +138,26 @@ private:
 	std::shared_ptr<Texture2D> m_diskTexture;
 	std::string m_sphereTexturePath;
 	std::shared_ptr<Texture2D> m_sphereTexture;
+	std::string m_spectrumTexturePath;
+	std::shared_ptr<Texture2D> m_spectrumTexture;
 
 	int m_maxSteps = 200;
 	float m_drawDistance = 100.0f;
 	float m_tolerance = 0.01f;
+	float m_insideDiskStepSize = 0.1f;
 	float m_diskIntersectionThreshold = 0.001f;
 	float m_sphereIntersectionThreshold = 0.001f;
 	int m_ODESolverSelector = 2;
 
-	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.1, 0.8, 0.2);
+	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.09, 0.73, 0.18);
 	glm::vec3 m_diskDebugColourTop2 = glm::vec3(0.02, 0.47, 0.87);
 	glm::vec3 m_diskDebugColourBottom1 = glm::vec3(0.98, 0.4, 0.0);
-	glm::vec3 m_diskDebugColourBottom2 = glm::vec3(1.0, 0.84, 0.0);
+	glm::vec3 m_diskDebugColourBottom2 = glm::vec3(0.90, 0.75, 0.0);
 
 	glm::vec3 m_sphereDebugColour1 = glm::vec3(0.8, 0.0, 0.0);
-	glm::vec3 m_sphereDebugColour2 = glm::vec3(0.30, 0.05, 0.46);
+	glm::vec3 m_sphereDebugColour2 = glm::vec3(0.23, 0.04, 0.36);
 
-
+	unsigned int m_spectrumTextureSlot = 5;
 	unsigned int m_diskTextureSlot = 4;
 	unsigned int m_sphereTextureSlot = 2;
 	unsigned int m_skyboxTextureSlot = 3;

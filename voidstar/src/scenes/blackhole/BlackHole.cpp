@@ -133,6 +133,12 @@ void BlackHole::LoadTextures()
             m_sphereTexture = Renderer::Get().GetTexture(m_sphereTexturePath, true);
         }
     }
+
+    m_spectrumTexturePath = "res/textures/spectrum.png";
+    if (!m_spectrumTexturePath.empty())
+    {
+        m_spectrumTexture = Renderer::Get().GetTexture(m_spectrumTexturePath, true);
+    }
 }
 
 void BlackHole::CompileBHShaders()
@@ -197,6 +203,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_a", m_a);
     shader->SetUniform1f("u_Tmax", m_Tmax);
     shader->SetUniform1f("u_diskRotationAngle", m_diskRotationAngle);
+    shader->SetUniform1f("u_diskThickness", m_diskThickness);
 
     shader->SetUniform1i("u_msaa", m_msaa);
 
@@ -206,10 +213,12 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_tolerance", m_tolerance);
     shader->SetUniform1f("u_diskIntersectionThreshold", m_diskIntersectionThreshold);
     shader->SetUniform1f("u_sphereIntersectionThreshold", m_sphereIntersectionThreshold);
+    shader->SetUniform1f("u_insideDiskStepSize", m_insideDiskStepSize);
 
     shader->SetUniform1i("diskTexture", m_diskTextureSlot);
     shader->SetUniform1i("skybox", m_skyboxTextureSlot);
     shader->SetUniform1i("sphereTexture", m_sphereTextureSlot);
+    shader->SetUniform1i("spectrumTexture", m_spectrumTextureSlot);
     shader->SetUniform1i("u_useSphereTexture", m_useSphereTexture);
     shader->SetUniform1i("u_useDebugSphereTexture", (int)m_useDebugSphereTexture);
     shader->SetUniform1i("u_drawBasicDisk", m_drawBasicDisk);
@@ -244,6 +253,10 @@ void BlackHole::SetShaderUniforms()
         m_sphereTexture->Bind(m_sphereTextureSlot);
     }
     m_cubemap.Bind(m_skyboxTextureSlot);
+    if (m_spectrumTexture)
+    {
+        m_spectrumTexture->Bind(m_spectrumTextureSlot);
+    }
 }
 
 void BlackHole::SetScreenShaderUniforms()
@@ -571,6 +584,10 @@ void BlackHole::ImGuiBHProperties()
         }
     }
     ImGui::SliderFloat("##Max Temperature", &m_Tmax, 1000.0f, 20000.0f, "Max Disk Temperature = %.0f");
+    if (m_use3DDisk)
+    {
+        ImGui::SliderFloat("##DiskThickness", &m_diskThickness, 0.0f, 1.0f, "Disk Thickness = %.2f");
+    }
     ImGui::SliderFloat("##DiskRotationSpeed", &m_diskRotationSpeed, 0.0f, 0.3f, "Disk Rotation Speed = %.3f");
 }
 
@@ -619,6 +636,10 @@ void BlackHole::ImGuiSimQuality()
     ImGui::SliderInt("##MaxSteps", &m_maxSteps, 1, 1000, "Max Steps = %d");
     ImGui::SliderFloat("##Disk Intersection Threshold", &m_diskIntersectionThreshold, 0.0001f, 0.1f, "Disk Intersection Error = %.4f");
     ImGui::SliderFloat("##Sphere Intersection Threshold", &m_sphereIntersectionThreshold, 0.0001f, 0.1f, "Sphere Intersection Error = %.4f");
+    if (m_use3DDisk)
+    {
+        ImGui::SliderFloat("##Inside Disk Stepsize", &m_insideDiskStepSize, 0.001f, 1.0f, "Inside Disk Stepsize = %.3f");
+    }
     if (m_ODESolverSelector == 2 || m_ODESolverSelector == 3)
     {
         ImGui::Text("Tolerance:");

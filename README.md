@@ -33,8 +33,8 @@ a coordinate singularity at the event horizon, unlike Boyer-Lindquist coordinate
 
 <p>The accretion disk resides in the equatorial plane of the black hole and 
 is assumed to have negligible self-gravity.  We also assume the disk is thin, i.e. at 
-radius $r$, the thickness of the disk $\ll r$.  The actual detail of the disk is produced by 
-Perlin noise.</p>
+radius $r$, the thickness of the disk $\ll r$.  The graphical detail of the disk is produced by 
+multifractal Perlin noise.</p>
 
 ### Screenshots
 

@@ -8,7 +8,7 @@ from the galaxy when the camera is located inside the event horizon.</p>
 
 ![Cinematic](voidstar/docs/images/cinematic.jpeg)
 
-### About
+### Technical Details
 
 <p><code>void*</code> ray marches along light-like geodesics by using Hamilton's equations applied 
 to General Relativity.  Namely, the Hamiltonian is given by</p>
@@ -36,13 +36,14 @@ is assumed to have negligible self-gravity.  We also assume the disk is thin, i.
 radius $r$, the thickness of the disk $\ll r$.  The actual detail of the disk is produced by 
 Perlin noise.</p>
 
+### Screenshots
+
 <p>A "cinematic mode" is included with post-processing options to create neat images.
 Additionally, <code>void*</code> can draw debug colouring on both the accretion disk and
 sphere in order to better make sense of what you're looking at.  By default, the top of
 the accretion disk and bottom of the accretion disk are coloured differently.</p>
 
-### Other Screenshots
-<p>Interstellar-esque</p>
+<p>Interstellar-esque ($a=.6$ and without Doppler shift or gravitational redshift).</p>
 
 ![Main shot](voidstar/docs/images/interstellar.jpeg)
 

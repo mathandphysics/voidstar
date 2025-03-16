@@ -22,7 +22,7 @@ class Camera
 		glm::mat4 GetSkyboxView() const;
 		void Reset();
 
-		void SetCameraPos(glm::vec3 pos);
+		void SetCameraPos(const glm::vec3 pos);
 		void SetLook(glm::vec3 pos);
 		void SetProj();
 		void SetFOV(float fov);

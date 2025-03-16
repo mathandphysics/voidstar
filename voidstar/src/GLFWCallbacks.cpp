@@ -102,7 +102,7 @@ void Screenshot()
 
 	GLCall(glPixelStorei(GL_PACK_ALIGNMENT, 1));
 	int w, h;
-	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &w, &h);
+	glfwGetWindowSize(Application::Get().GetWindow().GetGLFWWindow(), &w, &h);
 #ifndef NDEBUG
 	std::cout << "File dimensions: " << w << "x" << h << " pixels." << std::endl;
 #endif

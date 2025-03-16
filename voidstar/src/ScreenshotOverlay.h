@@ -1,6 +1,13 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
+
+struct ScreenshotInfo
+{
+	std::string filename;
+	double timeTaken;
+};
 
 class ScreenshotOverlay
 {
@@ -9,11 +16,10 @@ public:
 	~ScreenshotOverlay();
 
 	void NewScreenshotTaken(const std::string& fileName);
-	bool ShouldShow();
+	void OnRender();
 	void OnImGuiRender();
 
 private:
 	double m_screenshotOverlayDuration = 4.0; // duration in seconds
-	double m_screenshotTimeTaken = -m_screenshotOverlayDuration;
-	std::string m_lastScreenshotFileName;
+	std::vector<ScreenshotInfo> m_Screenshots;
 };

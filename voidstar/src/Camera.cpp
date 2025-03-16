@@ -59,14 +59,17 @@ void Camera::CameraGUI()
 #ifndef NDEBUG
 void Camera::DebugGUI()
 {
-	ImGui::Text("Position.x = %.3f", (float)m_cameraPos.x);
-	ImGui::Text("Position.y = %.3f", (float)m_cameraPos.y);
-	ImGui::Text("Position.z = %.3f", (float)m_cameraPos.z);
+	ImGui::Text("Camera Position:");
+	ImGui::InputFloat3("##CameraPosInput", &m_cameraPos.x, "%.3f");
 	ImGui::Separator();
 	ImGui::Separator();
 	ImGui::Text("Look.x = %.3f", (float)m_Look.x);
 	ImGui::Text("Look.y = %.3f", (float)m_Look.y);
 	ImGui::Text("Look.z = %.3f", (float)m_Look.z);
+	if (ImGui::Button("Look at origin"))
+	{
+		SetLook(glm::vec3(0.0f) - m_cameraPos);
+	}
 	ImGui::Separator();
 	ImGui::Text("Right.x = %.3f", (float)m_Right.x);
 	ImGui::Text("Right.y = %.3f", (float)m_Right.y);
@@ -77,22 +80,26 @@ void Camera::DebugGUI()
 	ImGui::Text("Up.z = %.3f", (float)m_Up.z);
 	ImGui::Separator();
 	ImGui::Separator();
-	ImGui::Text("Euler Angle X = %.3f", m_EulerAngles.x);
-	ImGui::Text("Euler Angle Y = %.3f", m_EulerAngles.y);
-	ImGui::Text("Euler Angle Z = %.3f", m_EulerAngles.z);
-	ImGui::Separator();
-	ImGui::Separator();
-	ImGui::Text("m_cameraRot.x = %.3f", m_cameraRot.x);
-	ImGui::Text("m_cameraRot.y = %.3f", m_cameraRot.y);
-	ImGui::Text("m_cameraRot.z = %.3f", m_cameraRot.z);
-	ImGui::Text("m_cameraRot.w = %.3f", m_cameraRot.w);
+	if (m_UseEulerAngles)
+	{
+		ImGui::Text("Euler Angle X = %.3f", m_EulerAngles.x);
+		ImGui::Text("Euler Angle Y = %.3f", m_EulerAngles.y);
+		ImGui::Text("Euler Angle Z = %.3f", m_EulerAngles.z);
+	}
+	else
+	{
+		ImGui::Text("cameraRot.x = %.3f", m_cameraRot.x);
+		ImGui::Text("cameraRot.y = %.3f", m_cameraRot.y);
+		ImGui::Text("cameraRot.z = %.3f", m_cameraRot.z);
+		ImGui::Text("cameraRot.w = %.3f", m_cameraRot.w);
+	}
 	ImGui::Separator();
 	ImGui::Separator();
 	if (ImGui::Checkbox("Use Euler Angles", &m_UseEulerAngles))
 	{
 		ToggleEulerAngles();
 	}
-	if (ImGui::SliderFloat("##FOV", &m_FOV, 20.0f, 150.0f, "FOV = %.1f"))
+	if (ImGui::SliderFloat("##FOV", &m_FOV, 1.0f, 150.0f, "FOV = %.1f"))
 	{
 		SetProj();
 	}
@@ -123,13 +130,14 @@ void Camera::Reset()
 	m_InputHandler.ResetScroll();
 }
 
-void Camera::SetCameraPos(glm::vec3 pos)
+void Camera::SetCameraPos(const glm::vec3 pos)
 {
 	m_cameraPos = pos;
 }
 
-void Camera::SetLook(const glm::vec3 look)
+void Camera::SetLook(glm::vec3 look)
 {
+	look = glm::normalize(look);
 	if (m_UseEulerAngles)
 	{
 		m_Look = look;
@@ -163,7 +171,7 @@ void Camera::SetLook(const glm::vec3 look)
 void Camera::SetProj()
 {
 	int width, height;
-	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
+	glfwGetWindowSize(Application::Get().GetWindow().GetGLFWWindow(), &width, &height);
 	m_Proj = glm::perspective(glm::radians(m_FOV), (float)width / (float)height, 0.1f, 1000.0f);
 }
 

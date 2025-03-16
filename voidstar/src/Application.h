@@ -13,21 +13,23 @@ class Application
 {
 public:
 	Application(const Application&) = delete;
+	static Application& Get()
+	{
+		static Application s_Instance;
+		return s_Instance;
+	}
 	~Application();
 
 	void Run();
 	void OnWindowClose();
 	void OnPause();
 	void ToggleVsync() const;
-	void ToggleFullscreen(bool external);
+	void ToggleFullscreen(bool toggleVar = false);
 	void OnResize(int width, int height);
 	void OnClick(int x, int y);
+	void SetScreenshotTaken(const std::string& fileName);
+	void ImGuiPrintRenderStats();
 
-	static Application& Get()
-	{
-		static Application s_Instance;
-		return s_Instance;
-	}
 	Window& GetWindow() { return m_Window; }
 	Menu& GetMenu() { return m_Menu; }
 	scene::SceneManager& GetSceneManager() { return m_SceneManager; }
@@ -39,13 +41,11 @@ public:
 	bool GetPaused() const { return m_Paused; }
 
 	void ResetCameraMousePos();
-	void ImGuiPrintRenderStats();
-	void SetIcon();
-	void SetScreenshotTaken(const std::string& fileName);
-
-	void LoadBlackHole();
 
 private:
+	void Load();
+	void MainLoop();
+	void SetIcon();
 	Application();
 
 public:
@@ -69,5 +69,4 @@ private:
 	ScreenshotOverlay m_screenshotOverlay;
 
 	std::string m_iconPath = "res/icon/voidstar.ico";
-	ApplicationIcon m_icon;
 };

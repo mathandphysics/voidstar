@@ -9,6 +9,8 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 
+#include "Texture.h"
+
 class Window
 {
 public:
@@ -19,22 +21,31 @@ public:
 	void EndImGuiFrame() const;
 	void SwapBuffers() const;
 	void PollEvents() const;
+	void OnImGuiRender() const;
 
 	GLFWwindow* CreateWindow(bool fullscreen, bool vsync);
 	void SetFullscreen(bool fullscreen);
+	void SetVSync(bool vsync) const;
+	void OnResize();
+	void SetIcon(const std::string& iconPath);
+
+	std::vector<double> GetCursorPos();
 
 	void PauseWindow();
 	void UnpauseWindow();
 
-	GLFWwindow*& GetWindow() { return m_Window; };
+	GLFWwindow*& GetGLFWWindow() { return m_Window; };
 
 private:
 
-	int m_windowPosx = 100;
-	int m_windowPosy = 100;
-	int m_windowSizex = 1280;
-	int m_windowSizey = 720;
+	int m_restorePosx = 100;
+	int m_restorePosy = 100;
+	int m_restoreSizex = 1280;
+	int m_restoreSizey = 720;
+	int m_width = 0;
+	int m_height = 0;
 
 	GLFWmonitor* m_Monitor;
 	GLFWwindow* m_Window;
+	ApplicationIcon m_icon;
 };

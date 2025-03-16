@@ -55,6 +55,7 @@ uniform bool u_transparentDisk;
 uniform bool u_useDebugDiskTexture;
 uniform vec3 u_sphereDebugColour1;
 uniform vec3 u_sphereDebugColour2;
+uniform int u_diskDebugDivisions;
 uniform vec3 u_diskDebugColourTop1;
 uniform vec3 u_diskDebugColourTop2;
 uniform vec3 u_diskDebugColourBottom1;
@@ -1062,11 +1063,7 @@ vec3 drawDebugDiskTexture(const in vec3 p)
     float pi = 3.14159265359;
     vec3 col = vec3(0.0);
 
-    // For drawing the debug textures.
-    float disk_divisions = 5.0;
-
     float u = (atan(p.x, p.z) + pi) / (2.0 * pi) - u_diskRotationAngle;
-    //u = fract(u);
     u = u - floor(u);
     float v = clamp(1.0 - (length(vec2(p.x, p.z)) - u_InnerRadius) / (u_OuterRadius - u_InnerRadius), 0.0, 1.0);
 
@@ -1074,7 +1071,7 @@ vec3 drawDebugDiskTexture(const in vec3 p)
     //col = texture(diskTexture, vec2(u, v)).xyz;
 
     // Makes alternating pattern between the two different colours.
-    float usign = sign(sin(disk_divisions * 2.0 * pi * u));
+    float usign = sign(sin(u_diskDebugDivisions * 2.0 * pi * u));
     float uscaled = (usign + 1.0) * 0.5;
     if (p.y >= 0)
     {
@@ -1090,6 +1087,7 @@ vec3 drawDebugDiskTexture(const in vec3 p)
 float sampleNoiseTexture(const in vec3 p)
 {
     // Inspired by https://www.youtube.com/watch?v=XWv1Ajc3tfU
+
     vec3 col = vec3(0.0);
     // To spherical coordinates
     float r = length(p.xz);
@@ -1282,8 +1280,6 @@ vec3 getDiskColour(const in mat2x4 diskIntersectionPoint, const in float previou
     if (u_transparentDisk && !u_useDebugDiskTexture && T > 0.05)
     {
         // Beer's law (https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law)
-        vec3 brightnessMultiplier = vec3(0.2126, 0.7152, 0.0722);
-        // The brighter the disk is at the intersection point, the higher the absorption.
         //brightnessFromRadius = clamp(10000.0 * ((f(r) / r) - (f(u_OuterRadius) / u_OuterRadius)), 0.0, 1.0);
         float absorptionDropOff = clamp(700.0 * (pow(mappedr, -2.5) - pow(u_OuterRadius, -2.5)), 0.0, 1.0);
         float absorptionNoise = sampleNoiseTexture(-planeIntersectionPoint.yzw);
@@ -1323,7 +1319,7 @@ void rayMarch(vec3 cameraPos, vec3 rayDir, inout vec3 rayCol, inout bool hitDisk
     xp[0] = vec4(0.0, cameraPos);
     dist = metricDistance(xp[0]);
 #ifdef INSIDE_HORIZON
-    // Inside the event horizon, we need to change the metric to outgoing coordinates.  We adjust p accordingly.
+    // Inside the event horizon, we change the metric to outgoing coordinates.  We adjust p accordingly.
     xp[1] = metric(xp[0]) * vec4(-1.0, rayDir);
 #else
     xp[1] = metric(xp[0]) * vec4(1.0, rayDir);

@@ -105,7 +105,7 @@ void Mesh::Draw()
 	m_shader->SetUniformMat4f("u_Proj", m_Proj);
 	m_shader->SetUniformMat4f("u_ProjInv", m_ProjInv);
 	glm::vec3 camera_pos = Application::Get().GetCamera().GetPosition();
-	m_shader->SetUniform3f("u_CameraPos", camera_pos.x, camera_pos.y, camera_pos.z);
+	m_shader->SetUniform3f("u_CameraPos", camera_pos);
 
 	ActivateTexture();
 	ActivateWireFrame();

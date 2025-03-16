@@ -17,7 +17,7 @@ static void glfw_error_callback(int error, const char* description)
 void GLFWSetCallbacks(GLFWwindow* window)
 {
     glfwSetWindowCloseCallback(window, WindowCloseCallback);
-    glfwSetFramebufferSizeCallback(window, WindowResizeCallback);
+    //glfwSetFramebufferSizeCallback(window, WindowResizeCallback);
     glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
     glfwSetKeyCallback(window, KeyPressCallback);
     glfwSetCursorPosCallback(window, MouseMovementCallback);
@@ -46,6 +46,10 @@ void ImGuiSetup(GLFWwindow*& window)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
+    // Prevent ImGui from saving a .ini file:
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
+
     // Set Style
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();
@@ -62,6 +66,8 @@ void ImGuiSetup(GLFWwindow*& window)
 
     // Load Fonts
     io.Fonts->AddFontFromFileTTF("res/fonts/Cousine-Regular.ttf", 20.0f);
+    // Build Font Atlas
+    io.Fonts->Build();
 }
 
 

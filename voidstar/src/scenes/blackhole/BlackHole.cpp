@@ -24,7 +24,7 @@ BlackHole::BlackHole()
     camera.SetFOV(30.0f);
     glm::vec3 pos = glm::vec3(0.0f, 2.0f, -45.0f);
     glm::vec3 blackholePos = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 look = glm::normalize(blackholePos - pos);
+    glm::vec3 look = blackholePos - pos;
     camera.SetLook(look);
     camera.SetCameraPos(pos);
 
@@ -171,7 +171,7 @@ void BlackHole::CreateFBOs()
     // Make the FBOs.  These are used for post-processing and bloom in particular.
     FramebufferSpecification fbospec;
     int width, height;
-    glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
+    glfwGetWindowSize(Application::Get().GetWindow().GetGLFWWindow(), &width, &height);
     fbospec.height = height;
     fbospec.width = width;
     fbospec.numColouredAttachments = 1;
@@ -224,12 +224,13 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1i("u_drawBasicDisk", m_drawBasicDisk);
     shader->SetUniform1i("u_transparentDisk", m_transparentDisk);
     shader->SetUniform1i("u_useDebugDiskTexture", (int)m_useDebugDiskTexture);
-    shader->SetUniform3f("u_sphereDebugColour1", m_sphereDebugColour1[0], m_sphereDebugColour1[1], m_sphereDebugColour1[2]);
-    shader->SetUniform3f("u_sphereDebugColour2", m_sphereDebugColour2[0], m_sphereDebugColour2[1], m_sphereDebugColour2[2]);
-    shader->SetUniform3f("u_diskDebugColourTop1", m_diskDebugColourTop1[0], m_diskDebugColourTop1[1], m_diskDebugColourTop1[2]);
-    shader->SetUniform3f("u_diskDebugColourTop2", m_diskDebugColourTop2[0], m_diskDebugColourTop2[1], m_diskDebugColourTop2[2]);
-    shader->SetUniform3f("u_diskDebugColourBottom1", m_diskDebugColourBottom1[0], m_diskDebugColourBottom1[1], m_diskDebugColourBottom1[2]);
-    shader->SetUniform3f("u_diskDebugColourBottom2", m_diskDebugColourBottom2[0], m_diskDebugColourBottom2[1], m_diskDebugColourBottom2[2]);
+    shader->SetUniform3f("u_sphereDebugColour1", m_sphereDebugColour1);
+    shader->SetUniform3f("u_sphereDebugColour2", m_sphereDebugColour2);
+    shader->SetUniform1i("u_diskDebugDivisions", m_diskDebugDivisions);
+    shader->SetUniform3f("u_diskDebugColourTop1", m_diskDebugColourTop1);
+    shader->SetUniform3f("u_diskDebugColourTop2", m_diskDebugColourTop2);
+    shader->SetUniform3f("u_diskDebugColourBottom1", m_diskDebugColourBottom1);
+    shader->SetUniform3f("u_diskDebugColourBottom2", m_diskDebugColourBottom2);
 
     shader->SetUniform1i("u_bloom", m_useBloom);
     shader->SetUniform1f("u_bloomThreshold", m_bloomThreshold);
@@ -242,7 +243,7 @@ void BlackHole::SetShaderUniforms()
     shader->SetUniform1f("u_gamma", m_gamma);
 
     glm::vec3 cameraPos = Application::Get().GetCamera().GetPosition();
-    shader->SetUniform3f("u_cameraPos", cameraPos.x, cameraPos.y, cameraPos.z);
+    shader->SetUniform3f("u_cameraPos", cameraPos);
 
     if (m_diskTexture)
     {
@@ -540,7 +541,9 @@ void BlackHole::ImGuiChooseBH()
         SetShader(m_selectedShaderString);
         m_maxSteps = 2000;
         m_a = 0.0;
+        float inner_radius = m_diskInnerRadius;
         CalculateISCO();
+        m_diskInnerRadius = inner_radius;
     }
     ImGui::SameLine();
     HelpMarker("Minkowski metric of General Relativity.  This is standard Euclidean 3-space.");
@@ -571,7 +574,7 @@ void BlackHole::ImGuiBHProperties()
     if (m_shaderSelector == 0)
     {
         // Only show a for a Kerr black hole.
-        if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.01f, 0.99f), "a = %.2f"))
+        if (ImGui::SliderFloat("##a", &m_a, 0.0f, fmin(m_mass - 0.001f, 0.999f), "a = %.3f"))
         {
             CalculateISCO();
         }
@@ -662,6 +665,7 @@ void BlackHole::ImGuiDebug()
 
     if (m_useDebugDiskTexture)
     {
+        ImGui::SliderInt("##DiskDebugDivisions", &m_diskDebugDivisions, 1, 10, "Disk Divisions = %d");
         ImGui::Text("Disk Top Debug Colour 1");
         ImGui::ColorEdit3("##ColourTop1", &m_diskDebugColourTop1[0]);
         ImGui::Text("Disk Top Debug Colour 2");

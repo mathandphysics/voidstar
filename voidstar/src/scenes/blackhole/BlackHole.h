@@ -149,6 +149,7 @@ private:
 	float m_sphereIntersectionThreshold = 0.001f;
 	int m_ODESolverSelector = 2;
 
+	int m_diskDebugDivisions = 5;
 	glm::vec3 m_diskDebugColourTop1 = glm::vec3(0.09, 0.73, 0.18);
 	glm::vec3 m_diskDebugColourTop2 = glm::vec3(0.02, 0.47, 0.87);
 	glm::vec3 m_diskDebugColourBottom1 = glm::vec3(0.98, 0.4, 0.0);

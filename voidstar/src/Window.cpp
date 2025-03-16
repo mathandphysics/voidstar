@@ -8,6 +8,8 @@ Window::Window(bool fullscreen, bool vsync)
     ImGuiSetup(m_Window);
 
     LoadandSetupOpenGL();
+
+    glfwGetWindowSize(m_Window, &m_width, &m_height);
 }
 
 
@@ -45,6 +47,11 @@ void Window::PollEvents() const
     glfwPollEvents();
 }
 
+void Window::OnImGuiRender() const
+{
+    ImGui::Text("Resolution: %d x %d", m_width, m_height);
+}
+
 GLFWwindow* Window::CreateWindow(bool fullscreen, bool vsync)
 {
     GLFWSetup();
@@ -77,8 +84,8 @@ GLFWwindow* Window::CreateWindow(bool fullscreen, bool vsync)
     else
     {
         // Normal windowed mode
-        width = m_windowSizex;
-        height = m_windowSizey;
+        width = m_restoreSizex;
+        height = m_restoreSizey;
         monitor = nullptr;
     }
     GLFWwindow* window = glfwCreateWindow(width, height, "void*", monitor, NULL);
@@ -107,8 +114,8 @@ void Window::SetFullscreen(bool fullscreen)
     if (fullscreen)
     {
         // Backup window position and window size
-        glfwGetWindowPos(m_Window, &m_windowPosx, &m_windowPosy);
-        glfwGetWindowSize(m_Window, &m_windowSizex, &m_windowSizey);
+        glfwGetWindowPos(m_Window, &m_restorePosx, &m_restorePosy);
+        glfwGetWindowSize(m_Window, &m_restoreSizex, &m_restoreSizey);
 
         // Get resolution of monitor
         const GLFWvidmode* mode = glfwGetVideoMode(m_Monitor);
@@ -119,10 +126,36 @@ void Window::SetFullscreen(bool fullscreen)
     else
     {
         // Restore last window size and position
-        glfwSetWindowMonitor(m_Window, nullptr, m_windowPosx, m_windowPosy, m_windowSizex, m_windowSizey, GLFW_DONT_CARE);
+        glfwSetWindowMonitor(m_Window, nullptr, m_restorePosx, m_restorePosy, m_restoreSizex, m_restoreSizey, GLFW_DONT_CARE);
     }
 }
 
+void Window::SetVSync(bool vsync) const
+{
+    glfwSwapInterval(vsync);
+}
+
+void Window::OnResize()
+{
+    int vp_width, vp_height;
+    glfwGetFramebufferSize(m_Window, &vp_width, &vp_height);
+    glViewport(0, 0, vp_width, vp_height);
+
+    glfwGetWindowSize(m_Window, &m_width, &m_height);
+}
+
+void Window::SetIcon(const std::string& iconPath)
+{
+    m_icon.Load(iconPath);
+    glfwSetWindowIcon(m_Window, m_icon.GetCount(), m_icon.GetImages().data());
+}
+
+std::vector<double> Window::GetCursorPos()
+{
+    std::vector<double> cursorpos = { 0.0, 0.0 };
+    glfwGetCursorPos(m_Window, &cursorpos[0], &cursorpos[1]);
+    return cursorpos;
+}
 
 void Window::PauseWindow()
 {

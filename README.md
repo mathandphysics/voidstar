@@ -28,12 +28,14 @@ $$
 <p>where $\lambda$ parametrizes the geodesic.  These equations are solved numerically.
 Multiple integration methods from the Runge-Kutta family are implemented and can support
 any metric tensor.  The Kerr and Minkowski metrics are currently included.  The Kerr
-metric is used in Kerr-Schild Cartesian coordinates, which have the benefit of not having
-a coordinate singularity at the event horizon, unlike Boyer-Lindquist coordinates.</p>
+metric is used in ingoing Kerr-Schild Cartesian coordinates, which have the benefit of not having
+a coordinate singularity at the event horizon, unlike Boyer-Lindquist coordinates.  When 
+the camera is inside of the event horizon, the metric switches to outgoing Kerr-Schild 
+Cartesian coordinates.</p>
 
 <p>The accretion disk resides in the equatorial plane of the black hole and 
 is assumed to have negligible self-gravity.  We also assume the disk is thin, i.e. at 
-radius $r$, the thickness of the disk $\ll r$.  The graphical detail of the disk is produced by 
+radius $r$, the thickness of the disk $\ll r$.  The graphical detail on the disk is produced by 
 multifractal Perlin noise.</p>
 
 ### Screenshots
@@ -79,17 +81,11 @@ Mouse Scroll : Change Movement Speed
 ### Compiling
 #### Visual Studio + vcpkg on Windows
 
-Use vcpkg to install the following:
+Use vcpkg to run the following install:
 
-`vcpkg install glfw3:x64-windows-static`
-
-`vcpkg install imgui[core,opengl3-binding,glfw-binding,docking-experimental]:x64-windows-static`
-
-`vcpkg install glm:x64-windows-static`
-
-`vcpkg install glad[gl-api-46,loader]:x64-windows-static`
-
-`vcpkg install stb:x64-windows-static`
+```
+vcpkg install --triplet=x64-windows-static glfw3 imgui[core,opengl3-binding,glfw-binding,docking-experimental] glm glad[gl-api-46,loader] stb
+```
 
 And make sure you've already used `vcpkg integrate install` so that Visual Studio can immediately use the installed packages.
 
@@ -98,7 +94,7 @@ Then just open the solution file in Visual Studio and compile.
 
 ### References
 
-- The skybox image of the Milky Way galaxy is thanks to [NASA](https://svs.gsfc.nasa.gov/cgi-bin/details.cgi?aid=4851)
+- The skybox image of the Milky Way galaxy is thanks to [NASA](https://svs.gsfc.nasa.gov/4851/)
 - "Einstein Gravity in a Nutshell" by Zee
 - "Gravitation" by Misner, Thorne, and Wheeler
 - ["The Kerr spacetime: A brief introduction"](https://arxiv.org/abs/0706.0622) by Matt Visser (2008)

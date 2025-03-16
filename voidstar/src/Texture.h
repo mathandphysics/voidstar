@@ -85,6 +85,7 @@ private:
 class ApplicationIcon
 {
 public:
+	ApplicationIcon();
 	ApplicationIcon(const std::string& filePath);
 	~ApplicationIcon();
 

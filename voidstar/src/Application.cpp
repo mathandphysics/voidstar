@@ -3,7 +3,7 @@
 #include "Camera.h"
 
 Application::Application()
-	: m_Window(m_fullScreen, m_Vsync), m_icon(m_iconPath)
+	: m_Window(m_fullScreen, m_Vsync)
 {
 	ResetCameraMousePos();
 	SetIcon();
@@ -14,7 +14,8 @@ Application::~Application()
 	m_Renderer.Shutdown();
 }
 
-void Application::Run()
+
+void Application::MainLoop()
 {
 	while (m_Running)
 	{
@@ -38,15 +39,19 @@ void Application::Run()
 			m_Menu.OnImGuiRender();
 		}
 
-		if (m_screenshotOverlay.ShouldShow())
-		{
-			m_screenshotOverlay.OnImGuiRender();
-		}
+		m_screenshotOverlay.OnRender();
 
 		m_Window.EndImGuiFrame();
 		m_Window.SwapBuffers();
 		m_GPUTimer.Stop();
 	}
+}
+
+
+void Application::Run()
+{
+	Load();
+	MainLoop();
 }
 
 void Application::OnWindowClose()
@@ -74,12 +79,12 @@ void Application::OnPause()
 
 void Application::ToggleVsync() const
 {
-	glfwSwapInterval(m_Vsync);
+	m_Window.SetVSync(m_Vsync);
 }
 
-void Application::ToggleFullscreen(bool external)
+void Application::ToggleFullscreen(bool toggleVar)
 {
-	if (external)
+	if (toggleVar)
 	{
 		m_fullScreen = !m_fullScreen;
 	}
@@ -89,11 +94,9 @@ void Application::ToggleFullscreen(bool external)
 void Application::OnResize(int width, int height)
 {
 #ifndef NDEBUG
-	std::cout << "Resizing application." << std::endl;
+	std::cout << "Resizing application to size:" << width << "x" << height << "." << std::endl;
 #endif
-	int vp_width, vp_height;
-	glfwGetFramebufferSize(m_Window.GetWindow(), &vp_width, &vp_height);
-	glViewport(0, 0, vp_width, vp_height);
+	m_Window.OnResize();
 	if (width * height > 0)
 	{
 		m_Camera.SetProj();
@@ -108,20 +111,19 @@ void Application::OnClick(int x, int y)
 
 void Application::ResetCameraMousePos()
 {
-	double currentMouseX, currentMouseY;
-	glfwGetCursorPos(m_Window.GetWindow(), &currentMouseX, &currentMouseY);
-	m_Camera.GetInputHandler().SetInitialMouseXY(currentMouseX, currentMouseY);
+	std::vector<double> currentMousePos = m_Window.GetCursorPos();
+	m_Camera.GetInputHandler().SetInitialMouseXY(currentMousePos[0], currentMousePos[1]);
 }
 
 void Application::ImGuiPrintRenderStats()
 {
 	ImGui::Text("Render statistics:");
-	float frameTime = Application::Get().GetFrameTimer().GetAverageDeltaTime();
+	float frameTime = m_FrameTimer.GetAverageDeltaTime();
 	ImGui::Text("FPS: %.1f", 1 / frameTime);
 	ImGui::Text("Frame Time: %.4fs", frameTime);
-	float sceneDrawTime = Application::Get().GetCPUTimer().GetAverageDeltaTime();
+	float sceneDrawTime = m_CPUTimer.GetAverageDeltaTime();
 	ImGui::Text("CPU Time/frame: %.6fs", sceneDrawTime);
-	float GUIDrawTime = Application::Get().GetGPUTimer().GetAverageDeltaTime();
+	float GUIDrawTime = m_GPUTimer.GetAverageDeltaTime();
 	ImGui::Text("GPU Time/frame: %.6fs", GUIDrawTime);
 	if (ImGui::Checkbox("Vsync", &m_Vsync))
 	{
@@ -129,17 +131,14 @@ void Application::ImGuiPrintRenderStats()
 	}
 	if (ImGui::Checkbox("Full Screen", &m_fullScreen))
 	{
-		ToggleFullscreen(false);
+		ToggleFullscreen();
 	}
-	int width, height;
-	glfwGetWindowSize(Application::Get().GetWindow().GetWindow(), &width, &height);
-	ImGui::Text("Resolution: %d x %d", width, height);
-	
+	m_Window.OnImGuiRender();
 }
 
 void Application::SetIcon()
 {
-	glfwSetWindowIcon(m_Window.GetWindow(), m_icon.GetCount(), m_icon.GetImages().data());
+	m_Window.SetIcon(m_iconPath);
 }
 
 void Application::SetScreenshotTaken(const std::string& fileName)
@@ -147,7 +146,7 @@ void Application::SetScreenshotTaken(const std::string& fileName)
 	m_screenshotOverlay.NewScreenshotTaken(fileName);
 }
 
-void Application::LoadBlackHole()
+void Application::Load()
 {
 	m_SceneManager.SetCurrentSceneByName("Black Hole");
 }

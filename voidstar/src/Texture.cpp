@@ -209,6 +209,10 @@ void TextureCubeMap::Unbind() const
 
 
 
+ApplicationIcon::ApplicationIcon()
+{
+}
+
 ApplicationIcon::ApplicationIcon(const std::string& filePath)
 {
 	Load(filePath);
